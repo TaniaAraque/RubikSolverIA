@@ -1,35 +1,49 @@
-# front_end/visualizer.py
 import pyglet
 from pyglet.gl import *
 from pyglet.window import key
+import random
 # Importamos nuestro back-end para el estado del cubo
-from back_end.cube_model import RubikCube, solve_a_star
+from back_end.cube_model import RubikCube, solve_a_star, heuristic, solve_ida_star
 
-# --- Variables Globales ---
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 600
-ROTATION_X = -30
-ROTATION_Y = -30
-CUBE_SIZE = 1.0 # Tamaño de un cubie
-GAP = 0.05      # Espacio entre cubies (opcional)
+# --- Variables Globales (Estética Final) ---
+WINDOW_WIDTH = 960
+WINDOW_HEIGHT = 720
+ROTATION_X = 35
+ROTATION_Y = -25
+CUBE_SIZE = 3.0     # Tamaño del cubie
+GAP = 0.06          # Espacio entre cubies
+ZOOM = -20.0        # Ajuste de zoom
 
-# Mapeo de color del modelo a color RGB para Pyglet
+# Lista de todos los movimientos posibles (para el revuelto)
+ALL_MOVES = ['R', "R'", 'L', "L'", 'U', "U'", 'D', "D'", 'F', "F'", 'B', "B'"]
+
+# Mapeo de color del modelo a color RGB (RGBA: R, G, B, Alpha)
 COLOR_MAP = {
-    'W': (1.0, 1.0, 1.0, 1.0), # Blanco
-    'Y': (1.0, 1.0, 0.0, 1.0), # Amarillo
-    'G': (0.0, 1.0, 0.0, 1.0), # Verde
-    'B': (0.0, 0.0, 1.0, 1.0), # Azul
-    'R': (1.0, 0.0, 0.0, 1.0), # Rojo
-    'O': (1.0, 0.6, 0.0, 1.0), # Naranja
-    'K': (0.1, 0.1, 0.1, 1.0), # Negro/Gris Oscuro
+    'W': (1.0, 1.0, 1.0, 1.0),                  # U: Blanco (White)
+    'O': (1.0, 165/255.0, 0.0, 1.0),            # R: Naranja (Orange)
+    'G': (0.0, 170/255.0, 0.0, 1.0),            # F: Verde (Green)
+    'Y': (1.0, 1.0, 0.0, 1.0),                  # D: Amarillo (Yellow)
+    'B': (0.0, 0.0, 1.0, 1.0),                  # L: Azul (Blue)
+    'R': (1.0, 0.0, 0.0, 1.0),                  # B: Rojo (Red)
+    'K': (0.1, 0.1, 0.1, 1.0),                  # Negro/Gris Oscuro (Cuerpo del cubie)
 }
 
 # La instancia de nuestro cubo de Rubik
 rubik = RubikCube()
+last_move_info = "Cubo resuelto"
+solution_sequence = []
+solution_step = 0
+
 
 class RubikWindow(pyglet.window.Window):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        # Configuración para antialiasing
+        config = pyglet.gl.Config(double_buffer=True, depth_size=24, sample_buffers=1, samples=4)
+        try:
+            super().__init__(*args, **kwargs, config=config)
+        except pyglet.window.NoSuchConfigException:
+            super().__init__(*args, **kwargs)
+        
         self.set_caption("Rubik Solver IA (Pyglet)")
         self.keys = key.KeyStateHandler()
         self.push_handlers(self.keys)
@@ -37,9 +51,45 @@ class RubikWindow(pyglet.window.Window):
         # Parámetros de la cámara
         self.rot_x = ROTATION_X
         self.rot_y = ROTATION_Y
-        self.zoom = -10.0
+        self.zoom = ZOOM
+        
+        pyglet.clock.schedule_interval(self.execute_solution_step, 0.5)
+
+    def scramble_cube(self, num_moves=10):
+        """Aplica una secuencia aleatoria de movimientos al cubo."""
+        global rubik, last_move_info, solution_sequence, solution_step
+        
+        solution_sequence = []
+        solution_step = 0
+        
+        scramble_moves = [random.choice(ALL_MOVES) for _ in range(num_moves)]
+        
+        for move in scramble_moves:
+            rubik = rubik.apply_move(move)
+            
+        scramble_str = " ".join(scramble_moves)
+        last_move_info = f"Revuelto: {scramble_str}"
+        h_score = heuristic(rubik)
+        self.set_caption(f"Rubik Solver - Heurística: {h_score}") 
+        print(f"Cubo revuelto con: {scramble_str}")
+        print(f"Heurística inicial: {h_score}")
+
+    def reset_cube_to_solved_state(self):
+        """Reinicia el cubo a su estado solucionado y borra el historial de movimientos/solución."""
+        global rubik, last_move_info, solution_sequence, solution_step
+        
+        # Re-inicializa el cubo a su estado resuelto (estado por defecto)
+        rubik = RubikCube()
+        last_move_info = "Cubo resuelto"
+        solution_sequence = []
+        solution_step = 0
+        h_score = heuristic(rubik)
+        self.set_caption(f"Rubik Solver - Heurística: {h_score}") 
+        print("Cubo reiniciado al estado solucionado.")
+
 
     def on_resize(self, width, height):
+        """Configura la proyección 3D al redimensionar."""
         glViewport(0, 0, width, height)
         glMatrixMode(GL_PROJECTION)
         glLoadIdentity()
@@ -48,6 +98,7 @@ class RubikWindow(pyglet.window.Window):
         return pyglet.event.EVENT_HANDLED
     
     def on_draw(self):
+        """Dibuja el cubo y la interfaz 2D."""
         self.clear()
         glLoadIdentity()
         
@@ -56,139 +107,172 @@ class RubikWindow(pyglet.window.Window):
         glRotatef(self.rot_x, 1.0, 0.0, 0.0) # Rotación en X
         glRotatef(self.rot_y, 0.0, 1.0, 0.0) # Rotación en Y
         
-        # Centrar el cubo 3x3. El cubo va de -1.5 a 1.5 en cada eje
-        glTranslatef(-1.5 * CUBE_SIZE, -1.5 * CUBE_SIZE, -1.5 * CUBE_SIZE) 
+        # Traslación para centrar el cubo (ajustada para CUBE_SIZE=3.0)
+        center_offset = 1.5 * CUBE_SIZE + GAP * 3
+        glTranslatef(-center_offset, -center_offset, -center_offset) 
 
-        # 2. Dibujar los 27 Cubies
-        # Iteramos sobre la cuadrícula 3x3x3. Las coordenadas (0, 1, 2)
-        # se mapean al centro de cada cubie.
-        
-        # Mapeo de índices de estado a posiciones (Esto es una simplificación)
-        # La lógica de qué color poner en qué cara del cubie es compleja. 
-        
-        # Para simplificar la lógica de color, iteraremos 3x3x3 cubies.
-        # Solo dibujaremos las 3 caras (U, F, R) del cubo externo por ahora.
-        
-        # Posición de inicio (la esquina de un cubie)
-        start_pos = -CUBE_SIZE + GAP 
-
-        # Iteradores para recorrer los stickers en el estado del cubo (back-end)
-        # La forma en que se dibujan los cubies debe coincidir con los índices de RubikCube.state
-        
-        # U-face indices: (y=2) [0..8]
-        # F-face indices: (z=2) [0..8]
-        # R-face indices: (x=2) [0..8]
-
-        # Contadores de stickers para las 6 caras
-        sticker_counters = {'U': 0, 'D': 0, 'F': 0, 'B': 0, 'L': 0, 'R': 0}
-
+        # 2. Dibujar los 27 Cubies (Iteración 3x3x3)
         for x in range(3):
             for y in range(3):
                 for z in range(3):
+                    # Coordenadas del centro de cada cubie en el espacio 3D
                     center_x = x * CUBE_SIZE + x * GAP
                     center_y = y * CUBE_SIZE + y * GAP
                     center_z = z * CUBE_SIZE + z * GAP
                     
-                    # Colores por defecto para caras no visibles o internas
-                    color_u, color_d, color_f, color_b, color_l, color_r = ('K', 'K', 'K', 'K', 'K', 'K') # 'K' para Negro/Internal
+                    # Colores por defecto (caras no visibles)
+                    color_u, color_d, color_f, color_b, color_l, color_r = ('K', 'K', 'K', 'K', 'K', 'K')
 
-                    # Lógica para determinar el color de las caras visibles (x, y, z = 0, 1, 2)
+                    # Saltamos el cubie central (hueco)
+                    if x == 1 and y == 1 and z == 1:
+                        continue
                     
-                    # Cara Superior (U)
+                    # --- Mapeo de coordenadas (x, y, z) a los índices del estado del cubo (0-8) ---
+                    # El índice 0 es la esquina superior izquierda de la cara visible
+                    
+                    # Cara Superior (U): y = 2
                     if y == 2:
-                        color_u = rubik.get_sticker_color('U', sticker_counters['U'])
-                        sticker_counters['U'] += 1
+                        index_u = (z * 3) + x 
+                        color_u = rubik.get_sticker_color('U', index_u)
                         
-                    # Cara Inferior (D)
+                    # Cara Inferior (D): y = 0
                     if y == 0:
-                        # NOTA: Los índices de D deben ir del 0 al 8. La asignación es compleja.
-                        color_d = rubik.get_sticker_color('D', 8 - (x + (2-z)*3) ) # Mapeo inverso de indices D
-                        sticker_counters['D'] += 1 # Solo para contar que se usaron 9
+                        index_d = ((2 - z) * 3) + x
+                        color_d = rubik.get_sticker_color('D', index_d)
                         
-                    # Cara Frontal (F)
+                    # Cara Frontal (F): z = 2
                     if z == 2:
-                        color_f = rubik.get_sticker_color('F', x + y * 3) # F: x horizontal, y vertical (de 0 a 8)
-                        sticker_counters['F'] += 1
+                        index_f = (2 - y) * 3 + x
+                        color_f = rubik.get_sticker_color('F', index_f)
 
-                    # Cara Trasera (B)
+                    # Cara Trasera (B): z = 0
                     if z == 0:
-                        # NOTA: B es compleja. B[0]=top-right, B[2]=top-left
-                        color_b = rubik.get_sticker_color('B', 8 - (x*3 + y) ) # Mapeo inverso de B
-                        sticker_counters['B'] += 1
-                        
-                    # Cara Derecha (R)
+                        index_b = (2 - y) * 3 + (2 - x) 
+                        color_b = rubik.get_sticker_color('B', index_b)
+
+                    # Cara Derecha (R): x = 2
                     if x == 2:
-                        color_r = rubik.get_sticker_color('R', 2 + 3 * y - 3 * x) # R: Indices 2, 5, 8, ...
-                        sticker_counters['R'] += 1
-                        
-                    # Cara Izquierda (L)
+                        index_r = (2 - y) * 3 + (2 - z)
+                        color_r = rubik.get_sticker_color('R', index_r)
+
+                    # Cara Izquierda (L): x = 0
                     if x == 0:
-                        # NOTA: L es compleja. L[0]=top-left, L[2]=top-right
-                        color_l = rubik.get_sticker_color('L', 8 - (2 * y + 3 * (2 - z)))
-                        sticker_counters['L'] += 1
-                        
+                        index_l = (2 - y) * 3 + z
+                        color_l = rubik.get_sticker_color('L', index_l)
                     
-                    # Dibujar el cubie con sus colores (sólo si no es el centro vacío)
-                    if not (x == 1 and y == 1 and z == 1):
-                        self.draw_cubie(
-                            center_x, center_y, center_z, 
-                            color_f, color_b, color_u, color_d, color_l, color_r
-                        )
+                    # Dibujar el cubie con sus colores
+                    self.draw_cubie(
+                        center_x, center_y, center_z, 
+                        color_f, color_b, color_u, color_d, color_l, color_r
+                    )
 
         # 3. Dibujar Botones y Texto 2D (Overlay)
         self.draw_2d_overlay()
 
 
-    # ... Nuevo método para dibujar un solo cubie con 6 caras ...
     def draw_cubie(self, x, y, z, color_f, color_b, color_u, color_d, color_l, color_r):
-        """Dibuja un solo cubie con sus 6 caras coloreadas."""
+        """
+        Dibuja un solo cubie con sus 6 caras coloreadas, usando el factor de elevación
+        para eliminar el Z-fighting.
+        """
         glPushMatrix()
-        glTranslatef(x + CUBE_SIZE/2.0, y + CUBE_SIZE/2.0, z + CUBE_SIZE/2.0)
-        s = CUBE_SIZE / 2.0
         
-        # Usamos el color GRIS para las caras internas (K: Negro)
-        # Añade 'K': (0.1, 0.1, 0.1, 1.0) al diccionario COLOR_MAP en la parte superior del archivo.
-
-        # Vertices para las 6 caras
-        vertices = [
+        # 1. Configuración de parámetros
+        glTranslatef(x + CUBE_SIZE/2.0, y + CUBE_SIZE/2.0, z + CUBE_SIZE/2.0)
+        
+        s = CUBE_SIZE / 2.0  # Mitad del tamaño del cubie (para el cuerpo interior 'K')
+        s_sticker = s * 0.98 # Tamaño ligeramente reducido para el sticker (mejor grosor de línea negra)
+        
+        # FACTOR DE ELEVACIÓN (Para evitar Z-fighting)
+        ELEV = 0.01 
+        
+        # 2. Dibujar el cuerpo interno (Negro/Gris)
+        glColor4f(*COLOR_MAP['K'])
+        
+        # Vertices para el cuerpo interno (tamaño completo 's')
+        vertices_k = (
             # Front (Z+)
-            ('v3f', (s, s, s, -s, s, s, -s, -s, s, s, -s, s)), 
+            s, s, s, -s, s, s, -s, -s, s, s, -s, s, 
             # Back (Z-)
-            ('v3f', (s, s, -s, s, -s, -s, -s, -s, -s, -s, s, -s)), 
+            s, s, -s, s, -s, -s, -s, -s, -s, -s, s, -s, 
             # Up (Y+)
-            ('v3f', (s, s, s, s, s, -s, -s, s, -s, -s, s, s)),
+            s, s, s, s, s, -s, -s, s, -s, -s, s, s,  
             # Down (Y-)
-            ('v3f', (s, -s, s, -s, -s, s, -s, -s, -s, s, -s, -s)),
+            s, -s, s, -s, -s, s, -s, -s, -s, s, -s, -s, 
             # Left (X-)
-            ('v3f', (-s, s, s, -s, s, -s, -s, -s, -s, -s, -s, s)),
+            -s, s, s, -s, s, -s, -s, -s, -s, -s, -s, s, 
             # Right (X+)
-            ('v3f', (s, s, s, s, -s, s, s, -s, -s, s, s, -s)),
-        ]
+            s, s, s, s, -s, s, s, -s, -s, s, s, -s
+        )
+        # Dibujar las 6 caras del cuerpo interno
+        pyglet.graphics.draw(24, GL_QUADS, ('v3f', vertices_k))
+            
+        # 3. Dibujar los Stickers Coloreados
+        
+        # Vertices de las 6 caras (usando s_sticker y ELEV)
+        
+        # Front (Z+): Elevamos en Z
+        vertices_f = ('v3f', (s_sticker, s_sticker, s + ELEV, -s_sticker, s_sticker, s + ELEV, -s_sticker, -s_sticker, s + ELEV, s_sticker, -s_sticker, s + ELEV)) 
+        # Back (Z-): Reducimos en Z
+        vertices_b = ('v3f', (s_sticker, s_sticker, -s - ELEV, s_sticker, -s_sticker, -s - ELEV, -s_sticker, -s_sticker, -s - ELEV, -s_sticker, s_sticker, -s - ELEV))
+        # Up (Y+): Elevamos en Y
+        vertices_u = ('v3f', (s_sticker, s + ELEV, s_sticker, s_sticker, s + ELEV, -s_sticker, -s_sticker, s + ELEV, -s_sticker, -s_sticker, s + ELEV, s_sticker))
+        # Down (Y-): Reducimos en Y
+        vertices_d = ('v3f', (s_sticker, -s - ELEV, s_sticker, -s_sticker, -s - ELEV, s_sticker, -s_sticker, -s - ELEV, -s_sticker, s_sticker, -s - ELEV, -s_sticker))
+        # Left (X-): Reducimos en X
+        vertices_l = ('v3f', (-s - ELEV, s_sticker, s_sticker, -s - ELEV, s_sticker, -s_sticker, -s - ELEV, -s_sticker, -s - ELEV, -s - ELEV, -s_sticker, s_sticker))
+        # Right (X+): Elevamos en X
+        vertices_r = ('v3f', (s + ELEV, s_sticker, s_sticker, s + ELEV, -s_sticker, s_sticker, s + ELEV, -s_sticker, -s_sticker, s + ELEV, s_sticker, -s_sticker))
+        
         
         # Colores de las 6 caras
         colors = [color_f, color_b, color_u, color_d, color_l, color_r]
+        vertices = [vertices_f, vertices_b, vertices_u, vertices_d, vertices_l, vertices_r]
         
-        # Dibujar cada cara
+        # Dibujar cada cara coloreada
         for i in range(6):
-            glColor4f(*COLOR_MAP[colors[i]])
-            pyglet.graphics.draw(4, GL_QUADS, vertices[i])
+            if colors[i] != 'K':
+                glColor4f(*COLOR_MAP[colors[i]])
+                pyglet.graphics.draw(4, GL_QUADS, vertices[i])
 
         glPopMatrix()
 
-    
-    
-    
-
     def draw_2d_overlay(self):
-        """Dibuja el texto del botón 'Resolver'."""
-        self.set_2d() # Cambia a vista 2D
-        pyglet.text.Label(
-            'Presiona [R] para Revolver. Presiona [A] para Resolver (A*)',
-            x=10, y=self.height - 30, color=(255, 255, 255, 255)
-        ).draw()
-        self.set_3d() # Vuelve a la vista 3D
+        """Dibuja el texto del overlay (Controles, estado y métricas de la IA)."""
+        self.set_2d() 
+        
+        # Título y controles
+        controls = [
+            'Controles:',
+            'Revuelto: [S] (Scramble - 10 movimientos)',
+            'Resolver: [A] (A* Search)',
+            'Resetear: [C] (Volver al estado solución)', # ¡Nuevo control!
+            'Rotaciones: U/Y, D/Z, F/G, B/P, L/I, R/T (Move / Move Prime)',
+            f'Último Estado: {last_move_info}',
+        ]
+
+        for i, text in enumerate(controls):
+            pyglet.text.Label(
+                text,
+                x=10, y=self.height - 20 - (i * 20),
+                color=(255, 255, 255, 255),
+                font_size=10
+            ).draw()
+            
+        # Secuencia de Solución
+        if solution_sequence:
+            sol_text = f"Solución ({solution_step}/{len(solution_sequence)}): {' '.join(solution_sequence)}"
+            pyglet.text.Label(
+                sol_text,
+                x=10, y=10,
+                color=(0, 255, 0, 255) if solution_step >= len(solution_sequence) else (255, 255, 0, 255),
+                font_size=12
+            ).draw()
+
+        self.set_3d() 
 
     def set_2d(self):
+        """Configura la vista para dibujar elementos 2D."""
         glMatrixMode(GL_PROJECTION)
         glPushMatrix()
         glLoadIdentity()
@@ -198,36 +282,136 @@ class RubikWindow(pyglet.window.Window):
         glLoadIdentity()
 
     def set_3d(self):
+        """Restaura la vista 3D."""
         glMatrixMode(GL_PROJECTION)
         glPopMatrix()
         glMatrixMode(GL_MODELVIEW)
         glPopMatrix()
 
-    # --- Interacción ---
+    def execute_solution_step(self, dt):
+        """Ejecuta un paso de la secuencia de solución cada 0.5 segundos."""
+        global rubik, solution_sequence, solution_step, last_move_info
+
+        if solution_step < len(solution_sequence):
+            move = solution_sequence[solution_step]
+            rubik = rubik.apply_move(move)
+            last_move_info = f"Aplicando solución: {move}"
+            solution_step += 1
+            if solution_step == len(solution_sequence):
+                last_move_info = "¡Cubo Resuelto por A*!"
+                self.set_caption("Rubik Solver IA - ¡RESUELTO!")
+                
+    def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
+        """Permite rotar el cubo con el ratón."""
+        if buttons & pyglet.window.mouse.LEFT:
+            self.rot_y += dx * 0.5
+            self.rot_x -= dy * 0.5
+
+
     def on_key_press(self, symbol, modifiers):
-        global rubik
+        """Maneja la aplicación de movimientos, el revuelto, el reset y la activación de A*."""
+        global rubik, last_move_info, solution_sequence, solution_step
+
+        move = None
+        # Reiniciar la ejecución de la solución al hacer un movimiento manual o revuelto
+        solution_sequence = []
+        solution_step = 0 
+
+        # --- 1. LÓGICA DE CONTROL (A*, Scramble y Reset) ---
         if symbol == key.A:
-            # Llama al Algoritmo A* del back-end
             if not rubik.is_solved():
-                print("--- Iniciando Solución A* ---")
-                solution = solve_a_star(rubik)
+                self.set_caption("Rubik Solver IA - BUSCANDO SOLUCIÓN...")
+                solution, expanded_nodes = solve_a_star(rubik) 
+                
                 if solution:
-                    print(f"Solución encontrada en {len(solution)} movimientos: {solution}")
-                    # Aquí se agregaría la lógica para ejecutar la secuencia visualmente
+                    solution_sequence = solution
+                    last_move_info = f"IA: {len(solution)} movs, {expanded_nodes} nodos."
+                    print(last_move_info)
                 else:
-                    print("No se encontró solución.")
+                    last_move_info = f"IA: No se encontró solución ({expanded_nodes} nodos exp.)"
+                    print(last_move_info)
             else:
-                print("El cubo ya está resuelto.")
+                last_move_info = "El cubo ya está resuelto."
+            return
         
-        elif symbol == key.R:
-            # Revuelve (usando la simulación incompleta por ahora)
-            print("Cubo revuelto (simulación)!")
-            rubik = rubik.apply_move('R')
-            self.on_draw() # Redibuja
+        elif symbol == key.J:
+ # Ejecuta IDA* y encola la solución para animar igual que A*
+            if not rubik.is_solved():
+                self.set_caption("Rubik Solver IA - IDA* BUSCANDO SOLUCIÓN...")
+                solution, expanded_nodes = solve_ida_star(rubik)
+                if solution:
+                    self.set_caption(
+                        f"Rubik Solver IA - IDA* listo: {len(solution)} movimientos | Nodos expandidos: {expanded_nodes}"
+                    )
+                    solution_sequence = [] # reinicia la cola por si venía de A*
+                    solution_sequence.extend(solution)
+                    solution_step = 0
+                else:
+                    self.set_caption("Rubik Solver IA - IDA*: sin solución <= profundidad establecida")
+            else:
+                 self.set_caption("Rubik Solver IA - Ya está resuelto")
+
+        
+
+
+
+        
+        elif symbol == key.S:
+            self.scramble_cube(num_moves=10) # 10 movimientos para un buen revuelto inicial
+            return
+
+        elif symbol == key.C: # NUEVO: Tecla 'C' para Resetear
+            self.reset_cube_to_solved_state()
+            return
+        
+
+
+        # --- 2. CAPTURA DE TODOS LOS MOVIMIENTOS ---
+        
+        # R (Derecha) / R' (T)
+        elif symbol == key.R: move = 'R'
+        elif symbol == key.T: move = "R'"
+            
+        # L (Izquierda) / L' (I)
+        elif symbol == key.L: move = 'L'
+        elif symbol == key.I: move = "L'"
+            
+        # U (Arriba) / U' (Y)
+        elif symbol == key.U: move = 'U'
+        elif symbol == key.Y: move = "U'"
+        
+        # D (Abajo) / D' (Z)
+        elif symbol == key.D: move = 'D'
+        elif symbol == key.Z: move = "D'"
+            
+        # F (Frontal) / F' (G)
+        elif symbol == key.F: move = 'F'
+        elif symbol == key.G: move = "F'"
+            
+        # B (Trasera) / B' (P) 
+        elif symbol == key.B: move = 'B'
+        elif symbol == key.P: move = "B'"
+
+
+        # --- 3. VERIFICACIÓN Y APLICACIÓN FINAL ---
+        
+        if move is None:
+            return 
+            
+        # Aplicar el movimiento y actualizar el estado
+        rubik = rubik.apply_move(move)
+        h_score = heuristic(rubik)
+        last_move_info = f"Movimiento: {move}. Heurística: {h_score}"
+        self.set_caption(f"Rubik Solver - Heurística: {h_score}") 
 
 # --- Ejecución ---
 if __name__ == '__main__':
-    window = RubikWindow(WINDOW_WIDTH, WINDOW_HEIGHT, resizable=True)
-    glClearColor(0.1, 0.1, 0.1, 1.0)
-    glEnable(GL_DEPTH_TEST) # Habilita la profundidad para 3D
-    pyglet.app.run()
+    try:
+        window = RubikWindow(WINDOW_WIDTH, WINDOW_HEIGHT, resizable=True)
+        glClearColor(0.1, 0.1, 0.1, 1.0) # Fondo Gris Oscuro
+        glEnable(GL_DEPTH_TEST) # Habilita la profundidad para 3D
+        glEnable(GL_CULL_FACE)  # Habilita el descarte de caras traseras
+        pyglet.app.run()
+    except Exception as e:
+        print(f"Error al iniciar Pyglet: {e}")
+        print("Asegúrate de tener Pyglet y sus dependencias (como OpenGL) instaladas.")

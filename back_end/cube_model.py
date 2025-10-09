@@ -1,36 +1,30 @@
-# back_end/cube_model.py
 import collections
 import heapq 
+import sys
 
 class RubikCube:
     """
     Representa el estado actual del Cubo de Rubik 3x3x3.
     """
     # [U, D, F, B, L, R]
-    # U=Up, D=Down, F=Front, B=Back, L=Left, R=Right
     COLORS = {'U': 'W', 'D': 'Y', 'F': 'G', 'B': 'B', 'L': 'R', 'R': 'O'}
     
     def __init__(self):
-        """
-        Inicializa el cubo en estado resuelto.
-        Cada cara ('U', 'D', 'F', 'B', 'L', 'R') contiene una lista de 9 strings (colores).
-        """
-        # --- CORRECCIÓN CLAVE: Inicializar self.state ---
+        """Inicializa el cubo en estado resuelto."""
         self.state = {}
-        # ------------------------------------------------
         
         for face, color in self.COLORS.items():
-            # [0, 1, 2, 3, 4, 5, 6, 7, 8] donde el centro es el índice 4
+            # [0, 1, 2, 3, 4, 5, 6, 7, 8]
             self.state[face] = [color] * 9
     
     def get_sticker_color(self, face, index):
         """Devuelve el color del sticker en una cara e índice específicos."""
+        if face not in self.state:
+            return 'X'
         return self.state[face][index]
 
-
     def get_state_tuple(self):
-        """Devuelve una tupla inmutable para ser usada como clave en diccionarios (Explored Set)."""
-        # Aseguramos un orden consistente para la tupla
+        """Devuelve una tupla inmutable para ser usada como clave."""
         return tuple(tuple(self.state[face]) for face in sorted(self.state.keys()))
 
     def is_solved(self):
@@ -43,148 +37,221 @@ class RubikCube:
     def _rotate_face(self, face_stickers, direction='clockwise'):
         """
         Rota los 8 stickers externos de una cara (2D).
-        
-        Args:
-            face_stickers (list): Lista de 9 stickers de una cara.
-            direction (str): 'clockwise' o 'counter_clockwise'.
-        
-        Returns:
-            list: Los 9 stickers con la rotación aplicada.
         """
-        new_face = face_stickers[:] # Copia profunda
-        
-        # Mapeo de rotación: (0, 1, 2, 3, 4, 5, 6, 7, 8) -> (2, 5, 8, 1, 4, 7, 0, 3, 6) para clockwise
         if direction == 'clockwise':
-            order = [6, 3, 0, 7, 4, 1, 8, 5, 2]
+            # Mapeo: New[i] gets Old[order[i]]
+            order = [6, 3, 0, 7, 4, 1, 8, 5, 2] 
         else: # counter_clockwise
             order = [2, 5, 8, 1, 4, 7, 0, 3, 6]
 
         return [face_stickers[i] for i in order]
+    
+ 
+    def _debug_print_F_move(self, move, old_state, new_state):
+        """Imprime el estado completo ANTES y DESPUÉS de F/F'."""
+        # Se imprime a stderr para evitar conflictos con stdout si el visualizador lo usa.
+        print("-" * 60, file=sys.stderr)
+        print(f"DEBUG: ESTADO ANTES DEL MOVIMIENTO {move}", file=sys.stderr)
+        temp_cube_old = RubikCube()
+        temp_cube_old.state = old_state
+        print(str(temp_cube_old), file=sys.stderr)
+        
+        print("\nDEBUG: ESTADO DESPUÉS DEL MOVIMIENTO", file=sys.stderr)
+        temp_cube_new = RubikCube()
+        temp_cube_new.state = new_state
+        print(str(temp_cube_new), file=sys.stderr)
+        print("-" * 60, file=sys.stderr) 
 
 
-    # back_end/cube_model.py (Dentro de la clase RubikCube)
 
-# ... (Todo el código anterior de __init__, get_state_tuple, etc. permanece) ...
-
-    # 2. Operadores (Movimientos)
     def apply_move(self, move):
-        """
-        Aplica un movimiento al cubo y devuelve un *nuevo* objeto RubikCube
-        con el estado actualizado.
-        """
+        """Aplica un movimiento al cubo."""
         new_cube = RubikCube()
-        # Copia el estado actual al nuevo cubo (para no modificar el original)
         new_cube.state = {k: list(v) for k, v in self.state.items()} 
-
-        # Diccionario para facilitar las rotaciones de bordes
-        # Guarda una lista de tuplas: (cara_origen, indices_origen, cara_destino, indices_destino)
         
-        # -----------------------------------------------------------------------------------
-        # | U, D, F, B, L, R | Rotación R (Derecha, sentido horario)                        |
-        # -----------------------------------------------------------------------------------
-        if move == 'R':
-            face = 'R'
-            
-            # 1. Rotación Interna de la Cara R
-            new_cube.state[face] = self._rotate_face(new_cube.state[face], 'clockwise')
-            
-            # 2. Rotación de los 4 Bordes Circundantes
-            # La forma más fácil de gestionar esto es almacenar los stickers
-            # que se van a mover antes de modificarlos.
+        old_state_for_debug = None
+        if move in ['F', "F'"]:
+             old_state_for_debug = {k: list(v) for k, v in self.state.items()}
 
-            # a) Almacenamos las 4 columnas que se van a rotar:
+        # ---------------------------------------------------------------------
+        # R / R' logic (omitted for brevity)
+        # ---------------------------------------------------------------------
+        if move == 'R' or move == "R'":
+            face = 'R'
+            clockwise = (move == 'R')
+            direction = 'clockwise' if clockwise else 'counter_clockwise'
+            new_cube.state[face] = self._rotate_face(new_cube.state[face], direction)
             U_col = [self.state['U'][2], self.state['U'][5], self.state['U'][8]]
             F_col = [self.state['F'][2], self.state['F'][5], self.state['F'][8]]
             D_col = [self.state['D'][2], self.state['D'][5], self.state['D'][8]]
-            B_col = [self.state['B'][6], self.state['B'][3], self.state['B'][0]] # ¡Índices inversos!
-
-            # b) Aplicamos la transferencia (U -> F -> D -> B -> U)
-            
-            # U -> F (F toma los stickers de U)
-            new_cube.state['F'][2], new_cube.state['F'][5], new_cube.state['F'][8] = U_col
-            
-            # F -> D (D toma los stickers de F)
-            new_cube.state['D'][2], new_cube.state['D'][5], new_cube.state['D'][8] = F_col
-            
-            # D -> B (B toma los stickers de D, PERO INVERTIDOS)
-            # Los índices de B son inversos: [6, 3, 0]
-            new_cube.state['B'][6], new_cube.state['B'][3], new_cube.state['B'][0] = D_col
-            
-            # B -> U (U toma los stickers de B, QUE YA ESTÁN INVERTIDOS EN B_col)
-            # B_col es [B6, B3, B0], que es el orden correcto para [U2, U5, U8]
-            new_cube.state['U'][2], new_cube.state['U'][5], new_cube.state['U'][8] = B_col
+            B_col_rev = [self.state['B'][6], self.state['B'][3], self.state['B'][0]]
+            if clockwise: # R: U -> F -> D -> B -> U
+                new_cube.state['F'][2], new_cube.state['F'][5], new_cube.state['F'][8] = U_col
+                new_cube.state['D'][2], new_cube.state['D'][5], new_cube.state['D'][8] = F_col
+                new_cube.state['B'][6], new_cube.state['B'][3], new_cube.state['B'][0] = D_col
+                new_cube.state['U'][2], new_cube.state['U'][5], new_cube.state['U'][8] = B_col_rev
+            else: # R': U -> B -> D -> F -> U
+                new_cube.state['B'][6], new_cube.state['B'][3], new_cube.state['B'][0] = U_col
+                new_cube.state['D'][2], new_cube.state['D'][5], new_cube.state['D'][8] = B_col_rev
+                new_cube.state['F'][2], new_cube.state['F'][5], new_cube.state['F'][8] = D_col
+                new_cube.state['U'][2], new_cube.state['U'][5], new_cube.state['U'][8] = F_col
         
-        # -----------------------------------------------------------------------------------
-        # | Implementación de R' (Derecha, sentido anti-horario)                             |
-        # -----------------------------------------------------------------------------------
-        elif move == "R'":
-            face = 'R'
-            
-            # 1. Rotación Interna de la Cara R
-            new_cube.state[face] = self._rotate_face(new_cube.state[face], 'counter_clockwise')
-            
-            # 2. Rotación de los 4 Bordes (En el sentido inverso: U -> B -> D -> F -> U)
-            
-            # a) Almacenamos las 4 columnas:
-            U_col = [self.state['U'][2], self.state['U'][5], self.state['U'][8]]
-            F_col = [self.state['F'][2], self.state['F'][5], self.state['F'][8]]
-            D_col = [self.state['D'][2], self.state['D'][5], self.state['D'][8]]
-            B_col = [self.state['B'][6], self.state['B'][3], self.state['B'][0]]
+        # L / L'
+        elif move == 'L' or move == "L'":
+            face = 'L'
+            clockwise = (move == 'L')
+            direction = 'clockwise' if clockwise else 'counter_clockwise'
+            new_cube.state[face] = self._rotate_face(new_cube.state[face], direction)
+            U_col = [self.state['U'][0], self.state['U'][3], self.state['U'][6]]
+            F_col = [self.state['F'][0], self.state['F'][3], self.state['F'][6]]
+            D_col = [self.state['D'][0], self.state['D'][3], self.state['D'][6]]
+            B_col_rev = [self.state['B'][8], self.state['B'][5], self.state['B'][2]] 
+            col_idx = [0, 3, 6]
+            B_idx_rev = [8, 5, 2] 
+            if clockwise:
+                for i, val in zip(col_idx, U_col): new_cube.state['F'][i] = val
+                for i, val in zip(col_idx, F_col): new_cube.state['D'][i] = val
+                for i, val in zip(B_idx_rev, D_col): new_cube.state['B'][i] = val
+                for i, val in zip(col_idx, B_col_rev): new_cube.state['U'][i] = val
+            else:
+                for i, val in zip(B_idx_rev, U_col): new_cube.state['B'][i] = val
+                for i, val in zip(col_idx, B_col_rev): new_cube.state['D'][i] = val
+                for i, val in zip(col_idx, D_col): new_cube.state['F'][i] = val
+                for i, val in zip(col_idx, F_col): new_cube.state['U'][i] = val
+        
+        # D / D'
+        elif move == 'D' or move == "D'":
+            face = 'D'
+            clockwise = (move == 'D')
+            direction = 'clockwise' if clockwise else 'counter_clockwise'
+            new_cube.state[face] = self._rotate_face(new_cube.state[face], direction)
+            F_row = [self.state['F'][6], self.state['F'][7], self.state['F'][8]]
+            R_row = [self.state['R'][6], self.state['R'][7], self.state['R'][8]]
+            B_row = [self.state['B'][6], self.state['B'][7], self.state['B'][8]]
+            L_row = [self.state['L'][6], self.state['L'][7], self.state['L'][8]]
+            row_idx = [6, 7, 8]
+            if clockwise:
+                for i, val in zip(row_idx, F_row): new_cube.state['R'][i] = val
+                for i, val in zip(row_idx, R_row): new_cube.state['B'][i] = val
+                for i, val in zip(row_idx, B_row): new_cube.state['L'][i] = val
+                for i, val in zip(row_idx, L_row): new_cube.state['F'][i] = val
+            else:
+                for i, val in zip(row_idx, F_row): new_cube.state['L'][i] = val
+                for i, val in zip(row_idx, L_row): new_cube.state['B'][i] = val
+                for i, val in zip(row_idx, B_row): new_cube.state['R'][i] = val
+                for i, val in zip(row_idx, R_row): new_cube.state['F'][i] = val
 
-            # b) Aplicamos la transferencia (U -> B -> D -> F -> U)
+        # U / U'
+        elif move == 'U' or move == "U'":
+            face = 'U'
+            clockwise = (move == 'U')
+            direction = 'clockwise' if clockwise else 'counter_clockwise'
+            new_cube.state[face] = self._rotate_face(new_cube.state[face], direction)
+            F_row = [self.state['F'][0], self.state['F'][1], self.state['F'][2]]
+            R_row = [self.state['R'][0], self.state['R'][1], self.state['R'][2]]
+            B_row = [self.state['B'][0], self.state['B'][1], self.state['B'][2]]
+            L_row = [self.state['L'][0], self.state['L'][1], self.state['L'][2]]
+            row_idx = [0, 1, 2]
+            if clockwise:
+                for i, val in zip(row_idx, F_row): new_cube.state['R'][i] = val
+                for i, val in zip(row_idx, R_row): new_cube.state['B'][i] = val
+                for i, val in zip(row_idx, B_row): new_cube.state['L'][i] = val
+                for i, val in zip(row_idx, L_row): new_cube.state['F'][i] = val
+            else:
+                for i, val in zip(row_idx, F_row): new_cube.state['L'][i] = val
+                for i, val in zip(row_idx, L_row): new_cube.state['B'][i] = val
+                for i, val in zip(row_idx, B_row): new_cube.state['R'][i] = val
+                for i, val in zip(row_idx, R_row): new_cube.state['F'][i] = val
+        
+        # ---------------------------------------------------------------------
+        # F / F' (Frontal) - Lógica de inversión con Debugging
+        # ---------------------------------------------------------------------
+        elif move == 'F' or move == "F'":
+            face = 'F'
+            clockwise = (move == 'F')
+            direction = 'clockwise' if clockwise else 'counter_clockwise'
+            new_cube.state[face] = self._rotate_face(new_cube.state[face], direction)
+
+            U_row = [self.state['U'][6], self.state['U'][7], self.state['U'][8]] 
+            R_col = [self.state['R'][0], self.state['R'][3], self.state['R'][6]] 
+            D_row = [self.state['D'][0], self.state['D'][1], self.state['D'][2]] 
+            L_col = [self.state['L'][2], self.state['L'][5], self.state['L'][8]] 
+
+            if clockwise: # F: U -> R -> D -> L -> U (TODAS INVERTIDAS)
+                new_cube.state['R'][0], new_cube.state['R'][3], new_cube.state['R'][6] = U_row[2], U_row[1], U_row[0]
+                new_cube.state['D'][0], new_cube.state['D'][1], new_cube.state['D'][2] = R_col[2], R_col[1], R_col[0]
+                new_cube.state['L'][2], new_cube.state['L'][5], new_cube.state['L'][8] = D_row[2], D_row[1], D_row[0]
+                new_cube.state['U'][6], new_cube.state['U'][7], new_cube.state['U'][8] = L_col[2], L_col[1], L_col[0]
+
+            else: # F' (Anti-Clockwise): U -> L -> D -> R -> U 
+                new_cube.state['L'][2], new_cube.state['L'][5], new_cube.state['L'][8] = U_row
+                new_cube.state['D'][0], new_cube.state['D'][1], new_cube.state['D'][2] = L_col
+                new_cube.state['R'][0], new_cube.state['R'][3], new_cube.state['R'][6] = D_row[2], D_row[1], D_row[0]
+                new_cube.state['U'][6], new_cube.state['U'][7], new_cube.state['U'][8] = R_col[2], R_col[1], R_col[0]
+
+            self._debug_print_F_move(move, old_state_for_debug, new_cube.state)
+                
+        # B / B' (Trasera)
+        elif move == 'B' or move == "B'":
+            face = 'B'
+            clockwise = (move == 'B') 
             
-            # U -> B (B toma los stickers de U, PERO INVERTIDOS)
-            new_cube.state['B'][6], new_cube.state['B'][3], new_cube.state['B'][0] = U_col
-            
-            # B -> D (D toma los stickers de B, QUE YA ESTÁN INVERTIDOS EN B_col)
-            new_cube.state['D'][2], new_cube.state['D'][5], new_cube.state['D'][8] = B_col
-            
-            # D -> F (F toma los stickers de D)
-            new_cube.state['F'][2], new_cube.state['F'][5], new_cube.state['F'][8] = D_col
-            
-            # F -> U (U toma los stickers de F)
-            new_cube.state['U'][2], new_cube.state['U'][5], new_cube.state['U'][8] = F_col
-            
-        # --- PENDIENTE: Añadir lógica para 'U', "U'", 'F', "F'", etc. ---
+            direction = 'clockwise' if clockwise else 'counter_clockwise'
+            new_cube.state[face] = self._rotate_face(new_cube.state[face], direction)
+
+            U_row = [self.state['U'][0], self.state['U'][1], self.state['U'][2]]
+            R_col = [self.state['R'][2], self.state['R'][5], self.state['R'][8]]
+            D_row = [self.state['D'][6], self.state['D'][7], self.state['D'][8]]
+            L_col = [self.state['L'][0], self.state['L'][3], self.state['L'][6]]
+
+            U_inv = [U_row[2], U_row[1], U_row[0]]
+            R_inv = [R_col[2], R_col[1], R_col[0]]
+            D_inv = [D_row[2], D_row[1], D_row[0]]
+            L_inv = [L_col[2], L_col[1], L_col[0]]
+
+            if clockwise: # B: U -> L -> D -> R -> U
+                new_cube.state['L'][0], new_cube.state['L'][3], new_cube.state['L'][6] = U_inv
+                new_cube.state['D'][6], new_cube.state['D'][7], new_cube.state['D'][8] = L_inv
+                new_cube.state['R'][2], new_cube.state['R'][5], new_cube.state['R'][8] = D_inv
+                new_cube.state['U'][0], new_cube.state['U'][1], new_cube.state['U'][2] = R_inv
+
+            else: # B': U -> R -> D -> L -> U
+                new_cube.state['R'][2], new_cube.state['R'][5], new_cube.state['R'][8] = U_inv
+                new_cube.state['D'][6], new_cube.state['D'][7], new_cube.state['D'][8] = R_inv
+                new_cube.state['L'][0], new_cube.state['L'][3], new_cube.state['L'][6] = D_inv
+                new_cube.state['U'][0], new_cube.state['U'][1], new_cube.state['U'][2] = L_inv
         
         return new_cube
 
     def __str__(self):
         """
-        Representación en texto del cubo para debugging.
-        Muestra una vista desplegada (Cross-shaped).
+        Representación en texto del cubo en formato de red 2D (el formato solicitado).
         """
-        def format_row(face, indices):
-            return " ".join(self.state.get(face, [' ']*9)[i] for i in indices)
+        def format_face_row(face, indices, separator=' '):
+            return separator.join(self.state.get(face, [' ']*9)[i] for i in indices)
             
         output = []
-        # Cara U (Up) - Arriba
-        output.append("        " + format_row('U', [0, 1, 2]))
-        output.append("        " + format_row('U', [3, 4, 5]))
-        output.append("        " + format_row('U', [6, 7, 8]))
-        
-        # Caras L, F, R, B - Centro (Indices de las bandas)
-        for i in range(0, 9, 3):
-            row = []
-            # L
-            row.append(format_row('L', [i, i + 1, i + 2]))
-            # F
-            row.append(format_row('F', [i, i + 1, i + 2]))
-            # R
-            row.append(format_row('R', [i, i + 1, i + 2]))
-            # B
-            row.append(format_row('B', [i, i + 1, i + 2]))
-            output.append("  ".join(row))
 
-        # Cara D (Down) - Abajo
-        output.append("        " + format_row('D', [0, 1, 2]))
-        output.append("        " + format_row('D', [3, 4, 5]))
-        output.append("        " + format_row('D', [6, 7, 8]))
+        # 1. Cara U (Up)
+        for i in [0, 3, 6]:
+            output.append("        " + format_face_row('U', [i, i + 1, i + 2]))
+        
+        # 2. Caras L, F, R, B
+        for i in [0, 3, 6]:
+            L_row = format_face_row('L', [i, i + 1, i + 2])
+            F_row = format_face_row('F', [i, i + 1, i + 2])
+            R_row = format_face_row('R', [i, i + 1, i + 2])
+            B_row = format_face_row('B', [i, i + 1, i + 2])
+            output.append(f"{L_row}  {F_row}  {R_row}  {B_row}")
+
+        # 3. Cara D (Down)
+        for i in [0, 3, 6]:
+            output.append("        " + format_face_row('D', [i, i + 1, i + 2]))
         
         return "\n".join(output)
 
 
-# --- Estructura para el Algoritmo A* (Sin Cambios) ---
+# --- Estructura para el Algoritmo A* (Omitido por brevedad) ---
 
 class Node:
     """Nodo del árbol de búsqueda para A*."""
@@ -200,44 +267,38 @@ class Node:
         return self.f_score < other.f_score
 
 def heuristic(cube: RubikCube):
-    """
-    Heurística (h(n)): Estima el costo restante para resolver el cubo.
-    """
+    """Heurística simple."""
     incorrect_stickers = 0
-    # Recorrer las 6 caras y contar los stickers que no tienen el color central
     for face, color in cube.COLORS.items():
-        # El centro (índice 4) es el color base
         expected_color = cube.state[face][4]
         for sticker_color in cube.state[face]:
             if sticker_color != expected_color:
                 incorrect_stickers += 1
-    # Escala para ser admisible (aproximada para una heurística débil)
     return incorrect_stickers // 8
 
 def solve_a_star(start_cube: RubikCube):
-    """
-    Algoritmo A* para encontrar la solución óptima.
-    """
-    # ... (El cuerpo de la función solve_a_star permanece igual) ...
+    """Algoritmo A*."""
     start_node = Node(start_cube, cost=0, heuristic=heuristic(start_cube))
     frontier = [start_node]
     explored = {start_cube.get_state_tuple(): start_node.cost}
-    MOVES = ['R'] # Mantenemos solo 'R' para prueba inicial
+    MOVES = ['R', "R'", 'L', "L'", 'U', "U'", 'D', "D'", 'F', "F'", 'B', "B'"] 
+
+    expanded_nodes = 0
 
     while frontier:
         current_node = heapq.heappop(frontier)
         current_cube = current_node.cube_state
+        expanded_nodes += 1
 
         if current_cube.is_solved():
             path = []
             while current_node.action is not None:
                 path.append(current_node.action)
                 current_node = current_node.parent
-            return path[::-1]
+            return path[::-1], expanded_nodes
 
-        # Evitamos la explosión del espacio de estados si aún no tenemos todos los movimientos
-        if current_node.cost >= 20: 
-             continue 
+        if expanded_nodes >= 200000: 
+             break 
 
         for move in MOVES:
             new_cube = current_cube.apply_move(move)
@@ -258,31 +319,73 @@ def solve_a_star(start_cube: RubikCube):
             explored[new_state_tuple] = new_cost
             heapq.heappush(frontier, new_node)
 
-    return None
+    return None, expanded_nodes
 
-if __name__ == '__main__':
-    # --- PRUEBA MEJORADA ---
-    
-    # 1. Cubo Resuelto
-    solved_cube = RubikCube()
-    print("--- 1. Estado Resuelto (Initial) ---")
-    print(solved_cube)
-    print(f"¿Resuelto? {solved_cube.is_solved()}") 
+# === Cambios propuestos para integrar IDA* (tecla J) sin quitar A* ===
+# 
+# Copia/pega estos bloques en tus archivos.
+# Mantengo intacto tu A* y la heurística actual; IDA* los reutiliza.
 
-      # 2. Aplicar el movimiento real 'R'
-    scrambled_cube = solved_cube.apply_move('R')
-    
-    print("\n--- 2. Estado Revuelto (Movimiento 'R' REAL) ---")
-    print(scrambled_cube)
-    print(f"Heurística (h(n)): {heuristic(scrambled_cube)}")
+# -----------------------------------------------------------------------------
+# 1) back_end/cube_model.py  →  Agregar al final del archivo
+# -----------------------------------------------------------------------------
 
-    # 3. Prueba de Búsqueda A*
-    print("\n--- 3. Búsqueda A* para resolver R' ---")
-    # solve_a_star usa MOVES = ['R', "R'", ...]
-    solution = solve_a_star(scrambled_cube)
-    
-    if solution:
-        print(f"Solución Encontrada: {solution}")
-        print(f"Longitud: {len(solution)}") # Debería ser 1: ['R'']
-    else:
-        print("Búsqueda A* no encontró solución. Revise la lógica del movimiento.")
+# --- Algoritmo IDA* (Iterative Deepening A*) ---
+# Usa la misma heurística() ya definida. Recorre en profundidad con umbral f=g+h
+# y aumenta el umbral iterativamente. Incluye un pruning básico para no deshacer
+# el último movimiento inmediatamente.
+
+def _opposite_move(move):
+    """Devuelve el movimiento inverso (p.ej. R' ↔ R) para evitar backtracking inmediato."""
+    return move[:-1] if move.endswith("'") else move + "'"
+
+
+def solve_ida_star(start_cube, max_depth=30):
+    """
+    Resuelve usando IDA* (iterative deepening A*).
+    Retorna (secuencia_de_movimientos, nodos_expandidos).
+    Si no encuentra solución dentro de max_depth, devuelve (None, nodos_expandidos).
+    """
+    MOVES = ['R', "R'", 'L', "L'", 'U', "U'", 'D', "D'", 'F', "F'", 'B', "B'"]
+    threshold = heuristic(start_cube)
+    expanded = 0
+
+    def search(cube, g, threshold, last_move, path):
+        nonlocal expanded
+        h = heuristic(cube)
+        f = g + h
+        if f > threshold:
+            return f, None
+        if cube.is_solved():
+            return "FOUND", path
+        if g >= max_depth:
+            return float('inf'), None
+
+        min_next = float('inf')
+        expanded += 1
+
+        for m in MOVES:
+            # Evitar deshacer el último movimiento
+            if last_move and m == _opposite_move(last_move):
+                continue
+
+            child = cube.apply_move(m)
+            res, sol = search(child, g + 1, threshold, m, path + [m])
+            if res == "FOUND":
+                return "FOUND", sol
+            if isinstance(res, (int, float)) and res < min_next:
+                min_next = res
+
+        return min_next, None
+
+    while True:
+        result, sol = search(start_cube, 0, threshold, None, [])
+        if result == "FOUND":
+            return sol, expanded
+        if isinstance(result, (int, float)) and result == float('inf'):
+            return None, expanded
+        threshold = int(result)
+        if threshold > max_depth:
+            return None, expanded
+
+
