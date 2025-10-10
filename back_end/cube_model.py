@@ -27,6 +27,7 @@ FACE_COLORS = {'U': 'W', 'D': 'Y', 'F': 'G', 'B': 'B', 'L': 'R', 'R': 'O'}
         7	            DBR	            D, B, R
  
  """
+
 CORNER_COLOR_ID = {
     frozenset(['W', 'G', 'O']): 0, 
     frozenset(['W', 'G', 'R']): 1, 
@@ -348,7 +349,178 @@ def heuristic(cube: RubikCube):
                 incorrect_stickers += 1
     return incorrect_stickers // 8
 
+def corner_twist_heuristic(cube: RubikCube):
+
+    """
+        ADMISSIBLE h <= 5.
+        Calculates the orientation (twist: 0, 1, or 2) for all 8 corners.
+        Orientation is determined by which face color (W/Y) is on the U/D face
+
+        - 0: The U/D-face sticker has the U/D center color (solved).
+        - 1 or 2: The U/D-face sticker has an F/B/L/R center color (twisted)
+
+    """
+
+    twist_sum = 0
+
+    #Identify the solved center colors
+
+    U_COLOR = FACE_COLORS['U'] # i.e 'W'
+    D_COLOR = FACE_COLORS['D'] # i.e 'Y'
+
+    for i, ((face_u_d, idx_u_d), (face_f_b, idx_f_b), (face_l_r, idx_l_r)) in enumerate(CORNER_STICKER_MAP):
+
+        # 1. Determine which cubie we are tracking (which 3 colors)
+        sticker_color_u_d = cube.get_sticker_color(face_u_d, idx_u_d)
+
+        # 2. Check the U/D sticker's color
+        if i <= 3: # UPPER corners (UFR, UFL, UBL, UBR)
+            solved_color = U_COLOR
+        else:      # DOWN corners (DFR, DFL, DBL, DBR)
+            solved_color = D_COLOR
+
+
+
+
+
+        # 3. Calculate Twist
+        twist = 0
+        if sticker_color_u_d != solved_color:
+            # If the U/D face color is incorrect, the corner is twisted (1 or 2).
+            # A simpler, admissible approach is to check if the U/D sticker is correct.
+            # Simplified Twist Calculation (Admissible but not exact twist value
+            # If   U/D color is on F/B side -> twist = 1
+            # Else U/D color is on L/R side -> twist = 2
+
+            sticker_color_f_b = cube.get_sticker_color(face_f_b, idx_f_b)
+
+            sticker_color_l_r = cube.get_sticker_color(face_l_r, idx_l_r)
+
+            if sticker_color_f_b == solved_color:
+
+                # U/D color is on the second face (F/B)
+                twist = 1
+            elif sticker_color_l_r == solved_color:
+                # U/D color is on the third face (L/R
+                twist = 2
+        twist_sum += twist
+
+    # Since a single move can correct the twist of at most 3 units (due to the 0 mod 3 constraint),
+    # it follows the minimum number of moves is the total sum divided by 3, rounded up.
+
+    if twist_sum == 0:
+        return 0
+
+    h_twist = math.ceil(twist_sum / 3)
+    return int(h_twist)
+
+def corner_perm_heuristic(cube: RubikCube):
+
+    global PDB_C8_TABLE
+    if PDB_C8_TABLE is None:
+        try:
+            PDB_C8_TABLE = np.fromfile(PDB_FILENAME_C8, dtype = np.int8)
+        except FileNotFoundError:
+
+            PDB_C8_TABLE = np.full(1, 0, dtype=np.int8)
+
+    # --- Corner Cubie Map (Indices 0-7) ---
+
+    # This is how the PDB defines the slots/positions (0-7):
+    # U-layer: 0:UFR, 1:UFL, 2:UBL, 3:UBR
+    # D-layer: 4:DFR, 5:DFL, 6:DBL, 7:DBR
+
+
+    """
+
+
+    Corner Index	Slot Name	Piece Colors (Solved)
+
+        0	            UFR	            U, F, R
+
+        1	            UFL	            U, F, L
+
+        2	            UBL	            U, B, L
+
+        3	            UBR	            U, B, R
+
+        4	            DFR	            D, F, R
+
+        5	            DFL	            D, F, L
+
+        6	            DBL	            D, B, L
+
+        7	            DBR	            D, B, R
+
+    """
+
+
+    """
+    What this crap means?
+
+    e.j.  R[0] = 4.
+    Corner at index 4 (DFR) moves to corner at index 0 (UFR)
+    i.e. TABLE[i] = j <-> j cubie goes to i cubie where i, j are corners.
+
+    """
+
+    def cube_corner_perm(cube):
+
+        """
+
+        RubikCube state into the PDB's 8-piece permutation.
+        """
+        perm = [0] * 8
+        for slot_index, (sticker_ud, sticker_fb, sticker_lr) in enumerate(CORNER_STICKER_MAP):
+            
+            #Read the three colors
+            colors_list = []
+
+            colors_list.append(cube.get_sticker_color(sticker_ud[0], sticker_ud[1]))
+            colors_list.append(cube.get_sticker_color(sticker_fb[0], sticker_fb[1]))
+            colors_list.append(cube.get_sticker_color(sticker_lr[0], sticker_lr[1]))
+
+            valid_colors = {c for c in colors_list if c is not None and c != 'X' and c != ''}
+            
+            if len(valid_colors) != 3:
+                pass
+
+            current_colors = frozenset(valid_colors)
+
+            try:
+
+                piece_index = CORNER_COLOR_ID[current_colors]
+
+            except KeyError:
+                color_str = ", ".join(sorted(list(current_colors)))
+
+                print(f"\nFATAL ERROR: Slot Index {slot_index} (Piece: {slot_index})")
+                print(f"Sticker Map: {sticker_ud}, {sticker_fb}, {sticker_lr}")
+
+                print(f"Cube Colors Read (Invalid Set): {{{color_str}}}") 
+                print(f"Full List Read: {colors_list}") 
+                print(f"Expected Piece Colors (CORNER_COLOR_ID): {CORNER_COLOR_ID}")
+                return None 
+
+
+            perm[slot_index] = piece_index
+
+        return perm
+
+    perm_state = cube_corner_perm(cube)
+
+    index = get_c8_perm_index(perm_state)
+
+    if len(PDB_C8_TABLE) == PDB_SIZE_C8_PERM:
+        print("FROM PDB TABLE")
+        return int(PDB_C8_TABLE[index])
+    else:
+        #Shit's corrupted, must failsafe
+        return corner_twist_heuristic(cube)
+    
+
 # AHORA DEVUELVE 3 VALORES (solución, nodos, tiempo) y usa type hints compatibles.
+
 def solve_a_star(start_cube: RubikCube, max_depth: int = 30) -> tuple[Optional[list[str]], int, float]: 
     """Algoritmo A*."""
     start_time = time.time() # Iniciar el temporizador
@@ -417,6 +589,7 @@ def solve_ida_star(start_cube: RubikCube, max_depth: int = 30) -> tuple[Optional
     MOVES = ['R', "R'", 'L', "L'", 'U', "U'", 'D', "D'", 'F', "F'", 'B', "B'"]
     #threshold = heuristic(start_cube)
     #threshold = corner_twist_heuristic(start_cube)
+    #threshold = corner_perm_heuristic(start_cube)
 
     start_h = heuristic(start_cube)
     threshold = start_h
