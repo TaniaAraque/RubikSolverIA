@@ -20,11 +20,11 @@ ALL_MOVES = ['R', "R'", 'L', "L'", 'U', "U'", 'D', "D'", 'F', "F'", 'B', "B'"]
 # Mapeo de color del modelo a color RGB (RGBA: R, G, B, Alpha)
 COLOR_MAP = {
     'W': (1.0, 1.0, 1.0, 1.0),                  # U: Blanco (White)
-    'O': (1.0, 165/255.0, 0.0, 1.0),            # R: Naranja (Orange)
-    'G': (0.0, 170/255.0, 0.0, 1.0),            # F: Verde (Green)
     'Y': (1.0, 1.0, 0.0, 1.0),                  # D: Amarillo (Yellow)
+    'G': (0.0, 170/255.0, 0.0, 1.0),            # F: Verde (Green)
     'B': (0.0, 0.0, 1.0, 1.0),                  # L: Azul (Blue)
     'R': (1.0, 0.0, 0.0, 1.0),                  # B: Rojo (Red)
+    'O': (1.0, 165/255.0, 0.0, 1.0),            # R: Naranja (Orange)
     'K': (0.1, 0.1, 0.1, 1.0),                  # Negro/Gris Oscuro (Cuerpo del cubie)
 }
 
@@ -61,16 +61,11 @@ class RubikWindow(pyglet.window.Window):
         
         solution_sequence = []
         solution_step = 0
-        
-        """
-        scramble_moves = [random.choice(ALL_MOVES) for _ in range(num_moves)]
-        
-        for move in scramble_moves:
-            rubik = rubik.apply_move(move)
-        """
+
 
         scramble_moves = []
         last_move_face = ''
+
         while len(scramble_moves) < num_moves:
             move = random.choice(ALL_MOVES)
             face = move[0]
@@ -126,6 +121,7 @@ class RubikWindow(pyglet.window.Window):
         center_offset = 1.5 * CUBE_SIZE + GAP * 3
         glTranslatef(-center_offset, -center_offset, -center_offset) 
 
+
         # 2. Dibujar los 27 Cubies (Iteración 3x3x3)
         for x in range(3):
             for y in range(3):
@@ -153,6 +149,7 @@ class RubikWindow(pyglet.window.Window):
                     # Cara Inferior (D): y = 0
                     if y == 0:
                         index_d = ((2 - z) * 3) + x
+                        #index_d = (z * 3) + x
                         color_d = rubik.get_sticker_color('D', index_d)
                         
                     # Cara Frontal (F): z = 2
@@ -167,7 +164,8 @@ class RubikWindow(pyglet.window.Window):
 
                     # Cara Derecha (R): x = 2
                     if x == 2:
-                        index_r = (2 - y) * 3 + (2 - z)
+                        #index_r = (2 - y) * 3 + (2 - z)
+                        index_r = (2 - y) * 3 + z
                         color_r = rubik.get_sticker_color('R', index_r)
 
                     # Cara Izquierda (L): x = 0
@@ -227,17 +225,64 @@ class RubikWindow(pyglet.window.Window):
         # Vertices de las 6 caras (usando s_sticker y ELEV)
         
         # Front (Z+): Elevamos en Z
-        vertices_f = ('v3f', (s_sticker, s_sticker, s + ELEV, -s_sticker, s_sticker, s + ELEV, -s_sticker, -s_sticker, s + ELEV, s_sticker, -s_sticker, s + ELEV)) 
+
+        vertices_f = ('v3f', (s_sticker, s_sticker, s + ELEV,
+
+                              -s_sticker, s_sticker, s + ELEV,
+
+                              -s_sticker, -s_sticker, s + ELEV,
+
+                              s_sticker, -s_sticker, s + ELEV))
+
         # Back (Z-): Reducimos en Z
-        vertices_b = ('v3f', (-s_sticker, s_sticker, -s - ELEV, -s_sticker, -s_sticker, -s - ELEV, s_sticker, -s_sticker, -s - ELEV, s_sticker, s_sticker, -s - ELEV))
+
+        vertices_b = ('v3f', (-s_sticker, s_sticker, -s - ELEV,
+
+                              -s_sticker, -s_sticker, -s - ELEV,
+
+                              s_sticker, -s_sticker, -s - ELEV,
+
+                              s_sticker, s_sticker, -s - ELEV))
+
         # Up (Y+): Elevamos en Y
-        vertices_u = ('v3f', (s_sticker, s + ELEV, s_sticker, s_sticker, s + ELEV, -s_sticker, -s_sticker, s + ELEV, -s_sticker, -s_sticker, s + ELEV, s_sticker))
+
+        vertices_u = ('v3f', (s_sticker, s + ELEV, s_sticker,
+
+                              s_sticker, s + ELEV, -s_sticker,
+
+                              -s_sticker, s + ELEV, -s_sticker,
+
+                              -s_sticker, s + ELEV, s_sticker))
+
         # Down (Y-): Reducimos en Y
-        vertices_d = ('v3f', (s_sticker, -s - ELEV, s_sticker, s_sticker, -s - ELEV, -s_sticker, -s_sticker, -s - ELEV, -s_sticker, -s_sticker, -s - ELEV, s_sticker))
+
+        vertices_d = ('v3f', (s_sticker, -s - ELEV, s_sticker,
+
+                              s_sticker, -s - ELEV, -s_sticker,
+
+                              -s_sticker, -s - ELEV, -s_sticker,
+
+                              -s_sticker, -s - ELEV, s_sticker))
+
         # Left (X-): Reducimos en X
-        vertices_l = ('v3f', (-s - ELEV, s_sticker, s_sticker, -s - ELEV, s_sticker, -s_sticker, -s - ELEV, -s_sticker, -s - ELEV, -s - ELEV, -s_sticker, s_sticker))
+
+        vertices_l = ('v3f', (-s - ELEV, s_sticker, s_sticker,
+
+                              -s - ELEV, s_sticker, -s_sticker,
+
+                              -s - ELEV, -s_sticker, -s - ELEV,
+
+                              -s - ELEV, -s_sticker, s_sticker))
+
         # Right (X+): Elevamos en X
-        vertices_r = ('v3f', (s + ELEV, s_sticker, -s_sticker, s + ELEV, s_sticker, s_sticker, s + ELEV, -s_sticker, s_sticker, s + ELEV, -s_sticker, -s_sticker))
+
+        vertices_r = ('v3f', (s + ELEV, s_sticker, s_sticker,
+
+                              s + ELEV, -s_sticker, s_sticker,
+
+                              s + ELEV, -s_sticker, -s_sticker,
+
+                              s + ELEV, s_sticker, -s_sticker)) 
         
         
         # Colores de las 6 caras
