@@ -1,60 +1,15 @@
-import os
-import math
-import numpy as np
+import collections
 import heapq 
 import sys
-from .precomp_cornerslt import get_c8_perm_index
-""" GLOBAL DEFINITIONS"""
-
-PDB_C8_TABLE = None
-PDB_SIZE_C8_PERM = 40320  # 8! Only permutation. No twist.
-PDB_FILENAME_C8 = os.path.join('..', 'assets', 'pdb_c8_perm.npy')
-
-FACE_COLORS = {'U': 'W', 'D': 'Y', 'F': 'B', 'B': 'G', 'L': 'O', 'R': 'R'}
-
-"""
-    Corner Index	Slot Name	Piece Colors (Solved)
-        0	            UFR	            U, F, R
-        1	            UFL	            U, F, L
-        2	            UBL	            U, B, L
-        3	            UBR	            U, B, R
-        4	            DFR	            D, F, R
-        5	            DFL	            D, F, L
-        6	            DBL	            D, B, L
-        7	            DBR	            D, B, R
- 
- """
-CORNER_COLOR_ID = {
-    frozenset(['W', 'B', 'R']): 0, 
-    frozenset(['W', 'B', 'O']): 1, 
-    frozenset(['W', 'G', 'O']): 2, 
-    frozenset(['W', 'G', 'R']): 3, 
-    frozenset(['Y', 'B', 'R']): 4, 
-    frozenset(['Y', 'B', 'O']): 5,    
-    frozenset(['Y', 'G', 'O']): 6, 
-    frozenset(['Y', 'G', 'R']): 7
-}
-
-CORNER_STICKER_MAP = [
-    # (U-sticker, F-sticker, R-sticker) - Solved Orientation 0
-    (('U', 8), ('F', 2), ('R', 0)), # UFR
-    (('U', 6), ('F', 0), ('L', 2)), # UFL
-    (('U', 0), ('B', 2), ('L', 0)), # UBL
-    (('U', 2), ('B', 0), ('R', 2)), # UBR
-    # (D-sticker, F-sticker, R-sticker) - Solved Orientation 0
-    (('D', 2), ('F', 8), ('R', 6)), # DFR
-    (('D', 0), ('F', 6), ('L', 8)), # DFL
-    (('D', 6), ('B', 8), ('L', 6)), # DBL
-    (('D', 8), ('B', 6), ('R', 8)), # DBR
-]
-
+import time # NUEVO: Para medir el tiempo de ejecución
+from typing import Optional, Union # NUEVO: Para type hints compatibles con Python 3.9
 
 class RubikCube:
     """
     Representa el estado actual del Cubo de Rubik 3x3x3.
     """
     # [U, D, F, B, L, R]
-    COLORS = {'U': 'W', 'D': 'Y', 'F': 'B', 'B': 'G', 'L': 'O', 'R': 'R'}
+    COLORS = {'U': 'W', 'D': 'Y', 'F': 'G', 'B': 'B', 'L': 'R', 'R': 'O'}
     
     def __init__(self):
         """Inicializa el cubo en estado resuelto."""
@@ -85,18 +40,13 @@ class RubikCube:
         """
         Rota los 8 stickers externos de una cara (2D).
         """
-        new_stickers = [0] * 9
         if direction == 'clockwise':
             # Mapeo: New[i] gets Old[order[i]]
             order = [6, 3, 0, 7, 4, 1, 8, 5, 2] 
         else: # counter_clockwise
             order = [2, 5, 8, 1, 4, 7, 0, 3, 6]
 
-        for new_idx, old_idx in enumerate(order):
-            new_stickers[new_idx] = face_stickers[old_idx]
-
-        #return [face_stickers[i] for i in order]
-        return new_stickers
+        return [face_stickers[i] for i in order]
     
  
     def _debug_print_F_move(self, move, old_state, new_state):
@@ -140,11 +90,11 @@ class RubikCube:
             if clockwise: # R: U -> F -> D -> B -> U
                 new_cube.state['F'][2], new_cube.state['F'][5], new_cube.state['F'][8] = U_col
                 new_cube.state['D'][2], new_cube.state['D'][5], new_cube.state['D'][8] = F_col
-                new_cube.state['B'][6], new_cube.state['B'][3], new_cube.state['B'][0] = D_col[::-1]
-                new_cube.state['U'][2], new_cube.state['U'][5], new_cube.state['U'][8] = B_col_rev[::-1]
+                new_cube.state['B'][6], new_cube.state['B'][3], new_cube.state['B'][0] = D_col
+                new_cube.state['U'][2], new_cube.state['U'][5], new_cube.state['U'][8] = B_col_rev
             else: # R': U -> B -> D -> F -> U
-                new_cube.state['B'][6], new_cube.state['B'][3], new_cube.state['B'][0] = U_col[::-1]
-                new_cube.state['D'][2], new_cube.state['D'][5], new_cube.state['D'][8] = B_col_rev[::-1]
+                new_cube.state['B'][6], new_cube.state['B'][3], new_cube.state['B'][0] = U_col
+                new_cube.state['D'][2], new_cube.state['D'][5], new_cube.state['D'][8] = B_col_rev
                 new_cube.state['F'][2], new_cube.state['F'][5], new_cube.state['F'][8] = D_col
                 new_cube.state['U'][2], new_cube.state['U'][5], new_cube.state['U'][8] = F_col
         
@@ -163,11 +113,11 @@ class RubikCube:
             if clockwise:
                 for i, val in zip(col_idx, U_col): new_cube.state['F'][i] = val
                 for i, val in zip(col_idx, F_col): new_cube.state['D'][i] = val
-                for i, val in zip(B_idx_rev, D_col[::-1]): new_cube.state['B'][i] = val
-                for i, val in zip(col_idx, B_col_rev[::-1]): new_cube.state['U'][i] = val
+                for i, val in zip(B_idx_rev, D_col): new_cube.state['B'][i] = val
+                for i, val in zip(col_idx, B_col_rev): new_cube.state['U'][i] = val
             else:
-                for i, val in zip(B_idx_rev, U_col[::-1]): new_cube.state['B'][i] = val
-                for i, val in zip(col_idx, B_col_rev[::-1]): new_cube.state['D'][i] = val
+                for i, val in zip(B_idx_rev, U_col): new_cube.state['B'][i] = val
+                for i, val in zip(col_idx, B_col_rev): new_cube.state['D'][i] = val
                 for i, val in zip(col_idx, D_col): new_cube.state['F'][i] = val
                 for i, val in zip(col_idx, F_col): new_cube.state['U'][i] = val
         
@@ -230,16 +180,16 @@ class RubikCube:
             L_col = [self.state['L'][2], self.state['L'][5], self.state['L'][8]] 
 
             if clockwise: # F: U -> R -> D -> L -> U (TODAS INVERTIDAS)
-                new_cube.state['R'][0], new_cube.state['R'][3], new_cube.state['R'][6] = U_row[::-1]
-                new_cube.state['D'][0], new_cube.state['D'][1], new_cube.state['D'][2] = R_col[::-1]
-                new_cube.state['L'][2], new_cube.state['L'][5], new_cube.state['L'][8] = D_row[::-1]
-                new_cube.state['U'][6], new_cube.state['U'][7], new_cube.state['U'][8] = L_col[::-1]
+                new_cube.state['R'][0], new_cube.state['R'][3], new_cube.state['R'][6] = U_row[2], U_row[1], U_row[0]
+                new_cube.state['D'][0], new_cube.state['D'][1], new_cube.state['D'][2] = R_col[2], R_col[1], R_col[0]
+                new_cube.state['L'][2], new_cube.state['L'][5], new_cube.state['L'][8] = D_row[2], D_row[1], D_row[0]
+                new_cube.state['U'][6], new_cube.state['U'][7], new_cube.state['U'][8] = L_col[2], L_col[1], L_col[0]
 
             else: # F' (Anti-Clockwise): U -> L -> D -> R -> U 
-                new_cube.state['L'][2], new_cube.state['L'][5], new_cube.state['L'][8] = U_row[::-1]
-                new_cube.state['D'][0], new_cube.state['D'][1], new_cube.state['D'][2] = L_col[::-1]
-                new_cube.state['R'][0], new_cube.state['R'][3], new_cube.state['R'][6] = D_row[::-1]
-                new_cube.state['U'][6], new_cube.state['U'][7], new_cube.state['U'][8] = R_col[::-1]
+                new_cube.state['L'][2], new_cube.state['L'][5], new_cube.state['L'][8] = U_row
+                new_cube.state['D'][0], new_cube.state['D'][1], new_cube.state['D'][2] = L_col
+                new_cube.state['R'][0], new_cube.state['R'][3], new_cube.state['R'][6] = D_row[2], D_row[1], D_row[0]
+                new_cube.state['U'][6], new_cube.state['U'][7], new_cube.state['U'][8] = R_col[2], R_col[1], R_col[0]
 
             self._debug_print_F_move(move, old_state_for_debug, new_cube.state)
                 
@@ -256,13 +206,10 @@ class RubikCube:
             D_row = [self.state['D'][6], self.state['D'][7], self.state['D'][8]]
             L_col = [self.state['L'][0], self.state['L'][3], self.state['L'][6]]
 
-            
             U_inv = [U_row[2], U_row[1], U_row[0]]
             R_inv = [R_col[2], R_col[1], R_col[0]]
             D_inv = [D_row[2], D_row[1], D_row[0]]
             L_inv = [L_col[2], L_col[1], L_col[0]]
-            
-    
 
             if clockwise: # B: U -> L -> D -> R -> U
                 new_cube.state['L'][0], new_cube.state['L'][3], new_cube.state['L'][6] = U_inv
@@ -306,7 +253,7 @@ class RubikCube:
         return "\n".join(output)
 
 
-# --- Estructura para el Algoritmo A* (Omitido por brevedad) ---
+# --- Estructura para el Algoritmo A* ---
 
 class Node:
     """Nodo del árbol de búsqueda para A*."""
@@ -331,171 +278,12 @@ def heuristic(cube: RubikCube):
                 incorrect_stickers += 1
     return incorrect_stickers // 8
 
-def corner_twist_heuristic(cube: RubikCube):
-
-    """
-        ADMISSIBLE h <= 5.
-        Calculates the orientation (twist: 0, 1, or 2) for all 8 corners.
-
-        Orientation is determined by which face color (W/Y) is on the U/D face.
-        - 0: The U/D-face sticker has the U/D center color (solved).
-        - 1 or 2: The U/D-face sticker has an F/B/L/R center color (twisted).
-
-    """
-    
-    twist_sum = 0
-    # Identify the solved center colors
-
-    U_COLOR = FACE_COLORS['U'] # i.e 'W'
-    D_COLOR = FACE_COLORS['D'] # i.e 'Y'
-    
-    for i, ((face_u_d, idx_u_d), (face_f_b, idx_f_b), (face_l_r, idx_l_r)) in enumerate(CORNER_STICKER_MAP):
-        
-
-        # 1. Determine which cubie we are tracking (which 3 colors)
-        sticker_color_u_d = cube.get_sticker_color(face_u_d, idx_u_d)
-        
-        # 2. Check the U/D sticker's color
-        if i <= 3: # UPPER corners (UFR, UFL, UBL, UBR)
-            solved_color = U_COLOR
-        else:      # DOWN corners (DFR, DFL, DBL, DBR)
-            solved_color = D_COLOR
-
-        # 3. Calculate Twist
-        twist = 0
-        if sticker_color_u_d != solved_color:
-            # If the U/D face color is incorrect, the corner is twisted (1 or 2).
-            # A simpler, admissible approach is to check if the U/D sticker is correct.
-            
-            # Simplified Twist Calculation (Admissible but not exact twist value)
-            # If   U/D color is on F/B side -> twist = 1
-            # Else U/D color is on L/R side -> twist = 2
-            
-            sticker_color_f_b = cube.get_sticker_color(face_f_b, idx_f_b)
-            sticker_color_l_r = cube.get_sticker_color(face_l_r, idx_l_r)
-            
-            if sticker_color_f_b == solved_color:
-                # U/D color is on the second face (F/B)
-                twist = 1
-            elif sticker_color_l_r == solved_color:
-                # U/D color is on the third face (L/R)
-                twist = 2
-            
-        twist_sum += twist
-    
-    # Since a single move can correct the twist of at most 3 units (due to the 0 mod 3 constraint),
-    # it follows the minimum number of moves is the total sum divided by 3, rounded up.
-    
-    if twist_sum == 0:
-        return 0
-    
-    h_twist = math.ceil(twist_sum / 3)
-    
-    return int(h_twist)
-
-def corner_perm_heuristic(cube: RubikCube):
-
-    global PDB_C8_TABLE
-    if PDB_C8_TABLE is None:
-        try:
-            PDB_C8_TABLE = np.fromfile(PDB_FILENAME_C8, dtype = np.int8)
-        except FileNotFoundError:
-            PDB_C8_TABLE = np.full(1, 0, dtype=np.int8)
-
-
-    # --- Corner Cubie Map (Indices 0-7) ---
-    # This is how the PDB defines the slots/positions (0-7):
-    # U-layer: 0:UFR, 1:UFL, 2:UBL, 3:UBR
-    # D-layer: 4:DFR, 5:DFL, 6:DBL, 7:DBR
-
-    """
-    Corner Index	Slot Name	Piece Colors (Solved)
-        0	            UFR	            U, F, R
-        1	            UFL	            U, F, L
-        2	            UBL	            U, B, L
-        3	            UBR	            U, B, R
-        4	            DFR	            D, F, R
-        5	            DFL	            D, F, L
-        6	            DBL	            D, B, L
-        7	            DBR	            D, B, R
- 
-    """
-
-    """
-    What this crap means?
-    e.j.  R[0] = 4.
-    Corner at index 4 (DFR) moves to corner at index 0 (UFR)
-
-    i.e. TABLE[i] = j <-> j cubie goes to i cubie where i, j are corners.
-
-    """
-
-    def cube_corner_perm(cube):
-        """
-        RubikCube state into the PDB's 8-piece permutation.
-    
-        """
-        perm = [0] * 8
-    
-        for slot_index, (sticker_ud, sticker_fb, sticker_lr) in enumerate(CORNER_STICKER_MAP):
-        
-                    # 1. Read the three colors
-            colors_list = []
-        
-            colors_list.append(cube.get_sticker_color(sticker_ud[0], sticker_ud[1]))
-            colors_list.append(cube.get_sticker_color(sticker_fb[0], sticker_fb[1]))
-            colors_list.append(cube.get_sticker_color(sticker_lr[0], sticker_lr[1]))
-        
-            # 2. CRITICAL FIX: Filter out invalid/sentinel values
-            # Assumes valid colors are strings like 'W', 'Y', 'R', etc.
-            valid_colors = {c for c in colors_list if c is not None and c != 'X' and c != ''}
-        
-            # Check if we failed to read all 3 stickers
-            if len(valid_colors) != 3:
-            # Handle the error gracefully, maybe print a full debug of the raw colors_list
-            # The previous FATAL ERROR print below will already happen, but this is why
-                pass
-        
-            current_colors = frozenset(valid_colors)
-        
-            # 2. Identify the piece index (j) from its unique color set
-            try:
-                piece_index = CORNER_COLOR_ID[current_colors]
-            except KeyError:
-            # ... (Your existing error logging code) ...
-                color_str = ", ".join(sorted(list(current_colors)))
-            # The current output of colors_list in your original error was only 2 colors: {G, W}
-            # This confirms the filtering step is necessary.
-                print(f"\nFATAL ERROR: Slot Index {slot_index} (Piece: {slot_index})")
-                print(f"Sticker Map: {sticker_ud}, {sticker_fb}, {sticker_lr}")
-            # Correcting the output to show the actual problem:
-                print(f"Cube Colors Read (Invalid Set): {{{color_str}}}") 
-                print(f"Full List Read: {colors_list}") # <-- Use this for further debugging
-                print(f"Expected Piece Colors (CORNER_COLOR_ID): {CORNER_COLOR_ID}")
-                return None 
-
-            perm[slot_index] = piece_index
-        
-        return perm
-    
-    perm_state = cube_corner_perm(cube)
-
-    
-    index = get_c8_perm_index(perm_state)
-    
-    if len(PDB_C8_TABLE) == PDB_SIZE_C8_PERM:
-        print("FROM PDB TABLE")
-        return int(PDB_C8_TABLE[index])
-    else:
-        #Shit's corrupted, must failsafe
-        return corner_twist_heuristic(cube) 
-
-
-def solve_a_star(start_cube: RubikCube):
+# AHORA DEVUELVE 3 VALORES (solución, nodos, tiempo) y usa type hints compatibles.
+def solve_a_star(start_cube: RubikCube, max_depth: int = 30) -> tuple[Optional[list[str]], int, float]: 
     """Algoritmo A*."""
+    start_time = time.time() # Iniciar el temporizador
+
     start_node = Node(start_cube, cost=0, heuristic=heuristic(start_cube))
-    #start_node = Node(start_cube, cost=0, heuristic=corner_twist_heuristic(start_cube))
-    #start_node = Node(start_cube, cost=0, heuristic=corner_perm_heuristic(start_cube))
     frontier = [start_node]
     explored = {start_cube.get_state_tuple(): start_node.cost}
     MOVES = ['R', "R'", 'L', "L'", 'U', "U'", 'D', "D'", 'F', "F'", 'B', "B'"] 
@@ -508,11 +296,12 @@ def solve_a_star(start_cube: RubikCube):
         expanded_nodes += 1
 
         if current_cube.is_solved():
+            end_time = time.time() # Detener el temporizador
             path = []
             while current_node.action is not None:
                 path.append(current_node.action)
                 current_node = current_node.parent
-            return path[::-1], expanded_nodes
+            return path[::-1], expanded_nodes, end_time - start_time # Retornar (solución, nodos, tiempo)
 
         if expanded_nodes >= 200000: 
              break 
@@ -531,68 +320,59 @@ def solve_a_star(start_cube: RubikCube):
                 action=move, 
                 cost=new_cost,
                 heuristic=heuristic(new_cube)
-                #heuristic = corner_twist_heuristic(new_cube)
-                #heuristic = corner_perm_heuristic(new_cube)
             )
             
             explored[new_state_tuple] = new_cost
             heapq.heappush(frontier, new_node)
 
-    return None, expanded_nodes
+    end_time = time.time() # Detener el temporizador si no encuentra solución
+    return None, expanded_nodes, end_time - start_time # Retornar (None, nodos, tiempo)
 
-# === Cambios propuestos para integrar IDA* (tecla J) sin quitar A* ===
-# 
-# Copia/pega estos bloques en tus archivos.
-# Mantengo intacto tu A* y la heurística actual; IDA* los reutiliza.
-
-# -----------------------------------------------------------------------------
-# 1) back_end/cube_model.py  →  Agregar al final del archivo
-# -----------------------------------------------------------------------------
 
 # --- Algoritmo IDA* (Iterative Deepening A*) ---
-# Usa la misma heurística() ya definida. Recorre en profundidad con umbral f=g+h
-# y aumenta el umbral iterativamente. Incluye un pruning básico para no deshacer
-# el último movimiento inmediatamente.
+def _opposite_move(move: str) -> str:
+    """Devuelve el movimiento inverso para evitar deshacer inmediatamente."""
+    if move.endswith("'"):
+        return move[:-1]
+    else:
+        return move + "'"
 
-def _opposite_move(move):
-    """Devuelve el movimiento inverso (p.ej. R' ↔ R) para evitar backtracking inmediato."""
-    return move[:-1] if move.endswith("'") else move + "'"
-
-
-def solve_ida_star(start_cube, max_depth=30):
+# AHORA DEVUELVE 3 VALORES (solución, nodos, tiempo) y usa type hints compatibles.
+def solve_ida_star(start_cube: RubikCube, max_depth: int = 30) -> tuple[Optional[list[str]], int, float]:
     """
     Resuelve usando IDA* (iterative deepening A*).
-    Retorna (secuencia_de_movimientos, nodos_expandidos).
-    Si no encuentra solución dentro de max_depth, devuelve (None, nodos_expandidos).
+    Retorna (secuencia_de_movimientos, nodos_expandidos, tiempo_en_segundos). Si no encuentra solución dentro de max_depth, devuelve (None, nodos_expandidos, tiempo).
     """
+    start_time = time.time() # Iniciar el temporizador
     MOVES = ['R', "R'", 'L', "L'", 'U', "U'", 'D', "D'", 'F', "F'", 'B', "B'"]
-    threshold = heuristic(start_cube)
-    #threshold = corner_twist_heuristic(start_cube)
-    #threshold = corner_perm_heuristic(start_cube)
+    start_h = heuristic(start_cube)
+    threshold = start_h
     expanded = 0
 
-    def search(cube, g, threshold, last_move, path):
+    # FIX CRÍTICO: Uso de Union y Optional para compatibilidad con Python 3.9
+    def search(cube: RubikCube, g: int, threshold: int, last_move: Optional[str], path: list[str]) -> tuple[Union[int, str], Optional[list[str]]]:
         nonlocal expanded
         h = heuristic(cube)
-        #h = corner_twist_heuristic(cube)
-        #h = corner_perm_heuristic(cube)
         f = g + h
         if f > threshold:
             return f, None
         if cube.is_solved():
             return "FOUND", path
+
         if g >= max_depth:
+            # Evita explorar más allá del límite duro
             return float('inf'), None
 
         min_next = float('inf')
         expanded += 1
 
         for m in MOVES:
-            # Evitar deshacer el último movimiento
+            # Evitar deshacer el último movimiento de inmediato
             if last_move and m == _opposite_move(last_move):
                 continue
 
             child = cube.apply_move(m)
+            # IDA* clásico en profundidad primero
             res, sol = search(child, g + 1, threshold, m, path + [m])
             if res == "FOUND":
                 return "FOUND", sol
@@ -601,14 +381,17 @@ def solve_ida_star(start_cube, max_depth=30):
 
         return min_next, None
 
+    # Bucle de profundización por umbral f = g + h
     while True:
         result, sol = search(start_cube, 0, threshold, None, [])
         if result == "FOUND":
-            return sol, expanded
+            end_time = time.time() # Detener el temporizador
+            return sol, expanded, end_time - start_time # Retornar 3 valores
         if isinstance(result, (int, float)) and result == float('inf'):
-            return None, expanded
-        threshold = int(result)
+            end_time = time.time() # Detener el temporizador
+            # agotamos sin nuevas fronteras útiles
+            return None, expanded, end_time - start_time # Retornar 3 valores
+        threshold = int(result)  # elevar umbral al menor f que superó el threshold
         if threshold > max_depth:
-            return None, expanded
-
-
+            end_time = time.time() # Detener el temporizador
+            return None, expanded, end_time - start_time # Retornar 3 valores
