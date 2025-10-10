@@ -184,7 +184,7 @@ class RubikWindow(pyglet.window.Window):
                     # Cara Derecha (R): x = 2
                     if x == 2:
                         #index_r = (2 - y) * 3 + (2 - z)
-                        index_r = (2 - y) * 3 + z
+                        index_r = (2 - y) * 3 + (2 - z)
                         color_r = rubik.get_sticker_color('R', index_r)
 
                     # Cara Izquierda (L): x = 0

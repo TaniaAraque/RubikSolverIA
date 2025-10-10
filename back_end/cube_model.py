@@ -262,7 +262,7 @@ class RubikCube:
             else: # F' (Anti-Clockwise): U -> L -> D -> R -> U 
                 new_cube.state['L'][2], new_cube.state['L'][5], new_cube.state['L'][8] = U_row
                 new_cube.state['D'][0], new_cube.state['D'][1], new_cube.state['D'][2] = L_col[::-1]
-                new_cube.state['R'][6], new_cube.state['R'][3], new_cube.state['R'][0] = D_row[::-1]
+                new_cube.state['R'][6], new_cube.state['R'][3], new_cube.state['R'][0] = D_row
                 new_cube.state['U'][6], new_cube.state['U'][7], new_cube.state['U'][8] = R_col
 
 
@@ -284,7 +284,7 @@ class RubikCube:
 
             if clockwise: # B: U -> L -> D -> R -> U
                 new_cube.state['L'][0], new_cube.state['L'][3], new_cube.state['L'][6] = U_row[::-1]
-                new_cube.state['D'][8], new_cube.state['D'][7], new_cube.state['D'][6] = L_col[::-1]
+                new_cube.state['D'][8], new_cube.state['D'][7], new_cube.state['D'][6] = L_col
                 new_cube.state['R'][2], new_cube.state['R'][5], new_cube.state['R'][8] = D_row[::-1]
                 new_cube.state['U'][0], new_cube.state['U'][1], new_cube.state['U'][2] = R_col
 
