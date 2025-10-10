@@ -135,6 +135,8 @@ class RubikCube:
         # ---------------------------------------------------------------------
         # R / R' logic (omitted for brevity)
         # ---------------------------------------------------------------------
+
+        # --------------------------------- RIGHT ---------------------------------------------------#
         if move == 'R' or move == "R'":
             face = 'R'
             clockwise = (move == 'R')
@@ -142,24 +144,25 @@ class RubikCube:
             direction = 'clockwise' if clockwise else 'counter_clockwise'
             new_cube.state[face] = self._rotate_face(new_cube.state[face], direction)
 
-            U_col = [self.state['U'][2], self.state['U'][5], self.state['U'][8]]
-            F_col = [self.state['F'][2], self.state['F'][5], self.state['F'][8]]
-            D_col = [self.state['D'][2], self.state['D'][5], self.state['D'][8]]
-            B_col = [self.state['B'][6], self.state['B'][3], self.state['B'][0]]
+            U_rcol = self.state['U'][2], self.state['U'][5], self.state['U'][8]
+            F_rcol = self.state['F'][2], self.state['F'][5], self.state['F'][8]
+            D_rcol = self.state['D'][2], self.state['D'][5], self.state['D'][8]
+            B_lcol = self.state['B'][0], self.state['B'][3], self.state['B'][6]
 
             if clockwise: # R: U -> F -> D -> B -> U
-                new_cube.state['F'][2], new_cube.state['F'][5], new_cube.state['F'][8] = U_col
-                new_cube.state['D'][2], new_cube.state['D'][5], new_cube.state['D'][8] = F_col
-                new_cube.state['B'][6], new_cube.state['B'][3], new_cube.state['B'][0] = D_col
-                new_cube.state['U'][2], new_cube.state['U'][5], new_cube.state['U'][8] = B_col
+                new_cube.state['B'][0], new_cube.state['B'][3], new_cube.state['B'][6] = U_rcol[::-1]
+                new_cube.state['D'][2], new_cube.state['D'][5], new_cube.state['D'][8] = B_lcol[::-1]
+                new_cube.state['F'][2], new_cube.state['F'][5], new_cube.state['F'][8] = D_rcol
+                new_cube.state['U'][2], new_cube.state['U'][5], new_cube.state['U'][8] = F_rcol
                 
             else: # R': U -> B -> D -> F -> U
 
-                new_cube.state['B'][6], new_cube.state['B'][3], new_cube.state['B'][0] = U_col
-                new_cube.state['D'][2], new_cube.state['D'][5], new_cube.state['D'][8] = B_col
-                new_cube.state['F'][2], new_cube.state['F'][5], new_cube.state['F'][8] = D_col
-                new_cube.state['U'][2], new_cube.state['U'][5], new_cube.state['U'][8] = F_col
+                new_cube.state['F'][2], new_cube.state['F'][5], new_cube.state['F'][8] = U_rcol
+                new_cube.state['D'][2], new_cube.state['D'][5], new_cube.state['D'][8] = F_rcol
+                new_cube.state['B'][0], new_cube.state['B'][3], new_cube.state['B'][6] = D_rcol[::-1]
+                new_cube.state['U'][2], new_cube.state['U'][5], new_cube.state['U'][8] = B_lcol[::-1]
         
+        # ------------------------------------------- LEFT ------------------------------------#
         # L / L'
         elif move == 'L' or move == "L'":
             face = 'L'
@@ -168,51 +171,25 @@ class RubikCube:
             direction = 'clockwise' if clockwise else 'counter_clockwise'
             new_cube.state[face] = self._rotate_face(new_cube.state[face], direction)
 
-            U_col = [self.state['U'][0], self.state['U'][3], self.state['U'][6]]
-            F_col = [self.state['F'][0], self.state['F'][3], self.state['F'][6]]
-            D_col = [self.state['D'][0], self.state['D'][3], self.state['D'][6]]
-            B_col = [self.state['B'][8], self.state['B'][5], self.state['B'][2]] 
+            U_lcol = self.state['U'][0], self.state['U'][3], self.state['U'][6]
+            F_lcol = self.state['F'][0], self.state['F'][3], self.state['F'][6]
+            D_lcol = self.state['D'][0], self.state['D'][3], self.state['D'][6]
+            B_rcol = self.state['B'][2], self.state['B'][5], self.state['B'][8] 
 
 
             if clockwise:
-                new_cube.state['B'][8], new_cube.state['B'][5], new_cube.state['B'][2] = U_col
-                new_cube.state['D'][0], new_cube.state['D'][3], new_cube.state['D'][6] = B_col
-                new_cube.state['F'][0], new_cube.state['F'][3], new_cube.state['F'][6] = D_col
-                new_cube.state['U'][0], new_cube.state['U'][3], new_cube.state['U'][6] = F_col
+                new_cube.state['F'][0], new_cube.state['F'][3], new_cube.state['F'][6] = U_lcol
+                new_cube.state['D'][0], new_cube.state['D'][3], new_cube.state['D'][6] = F_lcol
+                new_cube.state['B'][2], new_cube.state['B'][5], new_cube.state['B'][8] = D_lcol[::-1]
+                new_cube.state['U'][0], new_cube.state['U'][3], new_cube.state['U'][6] = B_rcol[::-1]
 
             else:
-                new_cube.state['F'][0], new_cube.state['F'][3], new_cube.state['F'][6] = U_col
-                new_cube.state['D'][0], new_cube.state['D'][3], new_cube.state['D'][6] = F_col
-                new_cube.state['B'][8], new_cube.state['B'][5], new_cube.state['B'][2] = D_col
-                new_cube.state['U'][0], new_cube.state['U'][3], new_cube.state['U'][6] = B_col
+                new_cube.state['B'][2], new_cube.state['B'][5], new_cube.state['B'][8] = U_lcol[::-1]
+                new_cube.state['D'][0], new_cube.state['D'][3], new_cube.state['D'][6] = B_rcol[::-1]
+                new_cube.state['F'][0], new_cube.state['F'][3], new_cube.state['F'][6] = D_lcol
+                new_cube.state['U'][0], new_cube.state['U'][3], new_cube.state['U'][6] = F_lcol
 
-        
-        # D / D'
-        elif move == 'D' or move == "D'":
-            face = 'D'
-            clockwise = (move == 'D')
-
-            direction = 'clockwise' if clockwise else 'counter_clockwise'
-            new_cube.state[face] = self._rotate_face(new_cube.state[face], direction)
-
-            F_row = [self.state['F'][6], self.state['F'][7], self.state['F'][8]]
-            R_row = [self.state['R'][6], self.state['R'][7], self.state['R'][8]]
-            B_row = [self.state['B'][6], self.state['B'][7], self.state['B'][8]]
-            L_row = [self.state['L'][6], self.state['L'][7], self.state['L'][8]]
-
-            if clockwise:
-                new_cube.state['R'][6], new_cube.state['R'][7], new_cube.state['R'][8] = F_row
-                new_cube.state['B'][6], new_cube.state['B'][7], new_cube.state['B'][8] = R_row
-                new_cube.state['L'][6], new_cube.state['L'][7], new_cube.state['L'][8] = B_row
-                new_cube.state['F'][6], new_cube.state['F'][7], new_cube.state['F'][8] = L_row
-            
-            else:
-                new_cube.state['L'][6], new_cube.state['L'][7], new_cube.state['L'][8] = F_row
-                new_cube.state['B'][6], new_cube.state['B'][7], new_cube.state['B'][8] = L_row
-                new_cube.state['R'][6], new_cube.state['R'][7], new_cube.state['R'][8] = B_row
-                new_cube.state['F'][6], new_cube.state['F'][7], new_cube.state['F'][8] = R_row
-
-
+        # ------------------------------------ UP ---------------------------------------------#
         # U / U'
         elif move == 'U' or move == "U'":
             face = 'U'
@@ -221,26 +198,52 @@ class RubikCube:
             direction = 'clockwise' if clockwise else 'counter_clockwise'
             new_cube.state[face] = self._rotate_face(new_cube.state[face], direction)
 
-            F_row = [self.state['F'][0], self.state['F'][1], self.state['F'][2]]
-            R_row = [self.state['R'][0], self.state['R'][1], self.state['R'][2]]
-            B_row = [self.state['B'][0], self.state['B'][1], self.state['B'][2]]
-            L_row = [self.state['L'][0], self.state['L'][1], self.state['L'][2]]
+            B_trow = self.state['B'][0], self.state['B'][1], self.state['B'][2]
+            R_trow = self.state['R'][0], self.state['R'][1], self.state['R'][2]
+            F_trow = self.state['F'][0], self.state['F'][1], self.state['F'][2]
+            L_trow = self.state['L'][0], self.state['L'][1], self.state['L'][2]
 
             if clockwise:
-                new_cube.state['R'][0], new_cube.state['R'][1], new_cube.state['R'][2] = F_row
-                new_cube.state['B'][0], new_cube.state['B'][1], new_cube.state['B'][2] = R_row
-                new_cube.state['L'][0], new_cube.state['L'][1], new_cube.state['L'][2] = B_row
-                new_cube.state['F'][0], new_cube.state['F'][1], new_cube.state['F'][2] = L_row
+                new_cube.state['R'][0], new_cube.state['R'][1], new_cube.state['R'][2] = B_trow
+                new_cube.state['F'][0], new_cube.state['F'][1], new_cube.state['F'][2] = R_trow
+                new_cube.state['L'][0], new_cube.state['L'][1], new_cube.state['L'][2] = F_trow
+                new_cube.state['B'][0], new_cube.state['B'][1], new_cube.state['B'][2] = L_trow
 
             else:
-                new_cube.state['L'][0], new_cube.state['L'][1], new_cube.state['L'][2] = F_row
-                new_cube.state['B'][0], new_cube.state['B'][1], new_cube.state['B'][2] = L_row
-                new_cube.state['R'][0], new_cube.state['R'][1], new_cube.state['R'][2] = B_row
-                new_cube.state['F'][0], new_cube.state['F'][1], new_cube.state['F'][2] = R_row
+                new_cube.state['L'][0], new_cube.state['L'][1], new_cube.state['L'][2] = B_trow
+                new_cube.state['F'][0], new_cube.state['F'][1], new_cube.state['F'][2] = L_trow
+                new_cube.state['R'][0], new_cube.state['R'][1], new_cube.state['R'][2] = F_trow
+                new_cube.state['B'][0], new_cube.state['B'][1], new_cube.state['B'][2] = R_trow
 
-        # ---------------------------------------------------------------------
-        # F / F' (Frontal) - Lógica de inversión con Debugging
-        # ---------------------------------------------------------------------
+        # ------------------------------------ DOWN ---------------------------------------------#
+        # D / D'
+        elif move == 'D' or move == "D'":
+            face = 'D'
+            clockwise = (move == 'D')
+
+            direction = 'clockwise' if clockwise else 'counter_clockwise'
+            new_cube.state[face] = self._rotate_face(new_cube.state[face], direction)
+
+            F_brow = self.state['F'][6], self.state['F'][7], self.state['F'][8]
+            L_brow = self.state['L'][6], self.state['L'][7], self.state['L'][8]
+            B_brow = self.state['B'][6], self.state['B'][7], self.state['B'][8]
+            R_brow = self.state['R'][6], self.state['R'][7], self.state['R'][8]
+
+            if clockwise:
+                new_cube.state['L'][6], new_cube.state['L'][7], new_cube.state['L'][8] = F_brow
+                new_cube.state['B'][6], new_cube.state['B'][7], new_cube.state['B'][8] = L_brow
+                new_cube.state['R'][6], new_cube.state['R'][7], new_cube.state['R'][8] = B_brow
+                new_cube.state['F'][6], new_cube.state['F'][7], new_cube.state['F'][8] = R_brow
+            
+            else:
+                new_cube.state['R'][6], new_cube.state['R'][7], new_cube.state['R'][8] = F_brow
+                new_cube.state['B'][6], new_cube.state['B'][7], new_cube.state['B'][8] = R_brow
+                new_cube.state['L'][6], new_cube.state['L'][7], new_cube.state['L'][8] = B_brow
+                new_cube.state['F'][6], new_cube.state['F'][7], new_cube.state['F'][8] = L_brow
+
+
+
+        # -----------------------------------------  FRONT ---------------------------------------------#
         elif move == 'F' or move == "F'":
             face = 'F'
             clockwise = (move == 'F')
@@ -248,27 +251,27 @@ class RubikCube:
             direction = 'clockwise' if clockwise else 'counter_clockwise'
             new_cube.state[face] = self._rotate_face(new_cube.state[face], direction)
 
-            U_row = [self.state['U'][6], self.state['U'][7], self.state['U'][8]] 
-            R_col = [self.state['R'][0], self.state['R'][3], self.state['R'][6]] 
-            D_row = [self.state['D'][0], self.state['D'][1], self.state['D'][2]] 
-            L_col = [self.state['L'][2], self.state['L'][5], self.state['L'][8]] 
+            U_brow = self.state['U'][6], self.state['U'][7], self.state['U'][8] 
+            L_rcol = self.state['L'][2], self.state['L'][5], self.state['L'][8] 
+            D_trow = self.state['D'][0], self.state['D'][1], self.state['D'][2] 
+            R_lcol = self.state['R'][0], self.state['R'][3], self.state['R'][6] 
 
-            if clockwise: # F: U -> R -> D -> L -> U (TODAS INVERTIDAS)
-                new_cube.state['R'][0], new_cube.state['R'][3], new_cube.state['R'][6] = U_row[::-1]
-                new_cube.state['D'][0], new_cube.state['D'][1], new_cube.state['D'][2] = R_col
-                new_cube.state['L'][8], new_cube.state['L'][5], new_cube.state['L'][2] = D_row[::-1]
-                new_cube.state['U'][6], new_cube.state['U'][7], new_cube.state['U'][8] = L_col[::-1]
+            if clockwise: # F: U -> R -> D -> L -> U
+                new_cube.state['R'][0], new_cube.state['R'][3], new_cube.state['R'][6] = U_brow
+                new_cube.state['D'][0], new_cube.state['D'][1], new_cube.state['D'][2] = R_lcol[::-1]
+                new_cube.state['L'][2], new_cube.state['L'][5], new_cube.state['L'][8] = D_trow
+                new_cube.state['U'][6], new_cube.state['U'][7], new_cube.state['U'][8] = L_rcol[::-1]
 
             else: # F' (Anti-Clockwise): U -> L -> D -> R -> U 
-                new_cube.state['L'][2], new_cube.state['L'][5], new_cube.state['L'][8] = U_row
-                new_cube.state['D'][0], new_cube.state['D'][1], new_cube.state['D'][2] = L_col[::-1]
-                new_cube.state['R'][6], new_cube.state['R'][3], new_cube.state['R'][0] = D_row
-                new_cube.state['U'][6], new_cube.state['U'][7], new_cube.state['U'][8] = R_col
+                new_cube.state['L'][2], new_cube.state['L'][5], new_cube.state['L'][8] = U_brow[::-1]
+                new_cube.state['D'][0], new_cube.state['D'][1], new_cube.state['D'][2] = L_rcol
+                new_cube.state['R'][0], new_cube.state['R'][3], new_cube.state['R'][6] = D_trow[::-1]
+                new_cube.state['U'][6], new_cube.state['U'][7], new_cube.state['U'][8] = R_lcol
 
 
-            self._debug_print_F_move(move, old_state_for_debug, new_cube.state)
+            #self._debug_print_F_move(move, old_state_for_debug, new_cube.state)
                 
-        # B / B' (Trasera)
+        # -------------------------------------- BACK ----------------------------------------------#
         elif move == 'B' or move == "B'":
             face = 'B'
             clockwise = (move == 'B') 
@@ -276,23 +279,23 @@ class RubikCube:
             direction = 'clockwise' if clockwise else 'counter_clockwise'
             new_cube.state[face] = self._rotate_face(new_cube.state[face], direction)
 
-            U_row = [self.state['U'][0], self.state['U'][1], self.state['U'][2]]
-            L_col = [self.state['L'][0], self.state['L'][3], self.state['L'][6]]
-            D_row = [self.state['D'][6], self.state['D'][7], self.state['D'][8]]
-            R_col = [self.state['R'][2], self.state['R'][5], self.state['R'][8]]
+            U_trow = self.state['U'][0], self.state['U'][1], self.state['U'][2]
+            R_rcol = self.state['R'][2], self.state['R'][5], self.state['R'][8]
+            D_brow = self.state['D'][6], self.state['D'][7], self.state['D'][8]
+            L_lcol = self.state['L'][0], self.state['L'][3], self.state['L'][6]
 
 
             if clockwise: # B: U -> L -> D -> R -> U
-                new_cube.state['L'][0], new_cube.state['L'][3], new_cube.state['L'][6] = U_row[::-1]
-                new_cube.state['D'][8], new_cube.state['D'][7], new_cube.state['D'][6] = L_col
-                new_cube.state['R'][2], new_cube.state['R'][5], new_cube.state['R'][8] = D_row[::-1]
-                new_cube.state['U'][0], new_cube.state['U'][1], new_cube.state['U'][2] = R_col
+                new_cube.state['L'][0], new_cube.state['L'][3], new_cube.state['L'][6] = U_trow[::-1]
+                new_cube.state['D'][6], new_cube.state['D'][7], new_cube.state['D'][8] = L_lcol
+                new_cube.state['R'][2], new_cube.state['R'][5], new_cube.state['R'][8] = D_brow[::-1]
+                new_cube.state['U'][0], new_cube.state['U'][1], new_cube.state['U'][2] = R_rcol
 
             else: # B': U -> R -> D -> L -> U
-                new_cube.state['R'][2], new_cube.state['R'][5], new_cube.state['R'][8] = U_row                
-                new_cube.state['D'][6], new_cube.state['D'][7], new_cube.state['D'][8] = R_col[::-1]
-                new_cube.state['L'][0], new_cube.state['L'][3], new_cube.state['L'][6] = D_row
-                new_cube.state['U'][0], new_cube.state['U'][1], new_cube.state['U'][2] = L_col[::-1]
+                new_cube.state['R'][2], new_cube.state['R'][5], new_cube.state['R'][8] = U_trow                
+                new_cube.state['D'][6], new_cube.state['D'][7], new_cube.state['D'][8] = R_rcol[::-1]
+                new_cube.state['L'][0], new_cube.state['L'][3], new_cube.state['L'][6] = D_brow
+                new_cube.state['U'][0], new_cube.state['U'][1], new_cube.state['U'][2] = L_lcol[::-1]
         
         return new_cube
 
@@ -587,9 +590,9 @@ def solve_ida_star(start_cube: RubikCube, max_depth: int = 30) -> tuple[Optional
     """
     start_time = time.time() # Iniciar el temporizador
     MOVES = ['R', "R'", 'L', "L'", 'U', "U'", 'D', "D'", 'F', "F'", 'B', "B'"]
-    #threshold = heuristic(start_cube)
-    #threshold = corner_twist_heuristic(start_cube)
-    #threshold = corner_perm_heuristic(start_cube)
+    #start_h = heuristic(start_cube)
+    #start_h = corner_twist_heuristic(start_cube)
+    #start_h = corner_perm_heuristic(start_cube)
 
     start_h = heuristic(start_cube)
     threshold = start_h
@@ -601,6 +604,7 @@ def solve_ida_star(start_cube: RubikCube, max_depth: int = 30) -> tuple[Optional
 
         #h = heuristic(cube)
         #h = corner_twist_heuristic(cube)
+        #h = corner_perm_heuristic(cube)
         h = heuristic(cube)
 
         f = g + h
