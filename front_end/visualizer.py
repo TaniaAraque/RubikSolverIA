@@ -62,11 +62,26 @@ class RubikWindow(pyglet.window.Window):
         solution_sequence = []
         solution_step = 0
         
+        """
         scramble_moves = [random.choice(ALL_MOVES) for _ in range(num_moves)]
         
         for move in scramble_moves:
             rubik = rubik.apply_move(move)
-            
+        """
+
+        scramble_moves = []
+        last_move_face = ''
+        while len(scramble_moves) < num_moves:
+            move = random.choice(ALL_MOVES)
+            face = move[0]
+        
+            if face == last_move_face:
+                continue
+        
+            rubik = rubik.apply_move(move) 
+            scramble_moves.append(move)
+            last_move_face = face
+
         scramble_str = " ".join(scramble_moves)
         last_move_info = f"Revuelto: {scramble_str}"
         h_score = heuristic(rubik)
@@ -214,15 +229,15 @@ class RubikWindow(pyglet.window.Window):
         # Front (Z+): Elevamos en Z
         vertices_f = ('v3f', (s_sticker, s_sticker, s + ELEV, -s_sticker, s_sticker, s + ELEV, -s_sticker, -s_sticker, s + ELEV, s_sticker, -s_sticker, s + ELEV)) 
         # Back (Z-): Reducimos en Z
-        vertices_b = ('v3f', (s_sticker, s_sticker, -s - ELEV, s_sticker, -s_sticker, -s - ELEV, -s_sticker, -s_sticker, -s - ELEV, -s_sticker, s_sticker, -s - ELEV))
+        vertices_b = ('v3f', (-s_sticker, s_sticker, -s - ELEV, -s_sticker, -s_sticker, -s - ELEV, s_sticker, -s_sticker, -s - ELEV, s_sticker, s_sticker, -s - ELEV))
         # Up (Y+): Elevamos en Y
         vertices_u = ('v3f', (s_sticker, s + ELEV, s_sticker, s_sticker, s + ELEV, -s_sticker, -s_sticker, s + ELEV, -s_sticker, -s_sticker, s + ELEV, s_sticker))
         # Down (Y-): Reducimos en Y
-        vertices_d = ('v3f', (s_sticker, -s - ELEV, s_sticker, -s_sticker, -s - ELEV, s_sticker, -s_sticker, -s - ELEV, -s_sticker, s_sticker, -s - ELEV, -s_sticker))
+        vertices_d = ('v3f', (s_sticker, -s - ELEV, s_sticker, s_sticker, -s - ELEV, -s_sticker, -s_sticker, -s - ELEV, -s_sticker, -s_sticker, -s - ELEV, s_sticker))
         # Left (X-): Reducimos en X
         vertices_l = ('v3f', (-s - ELEV, s_sticker, s_sticker, -s - ELEV, s_sticker, -s_sticker, -s - ELEV, -s_sticker, -s - ELEV, -s - ELEV, -s_sticker, s_sticker))
         # Right (X+): Elevamos en X
-        vertices_r = ('v3f', (s + ELEV, s_sticker, s_sticker, s + ELEV, -s_sticker, s_sticker, s + ELEV, -s_sticker, -s_sticker, s + ELEV, s_sticker, -s_sticker))
+        vertices_r = ('v3f', (s + ELEV, s_sticker, -s_sticker, s + ELEV, s_sticker, s_sticker, s + ELEV, -s_sticker, s_sticker, s + ELEV, -s_sticker, -s_sticker))
         
         
         # Colores de las 6 caras
@@ -244,9 +259,10 @@ class RubikWindow(pyglet.window.Window):
         # Título y controles
         controls = [
             'Controles:',
-            'Revuelto: [S] (Scramble - 10 movimientos)',
+            'Revuelto: [S] (Scramble - 8 movimientos)',
             'Resolver: [A] (A* Search)',
-            'Resetear: [C] (Volver al estado solución)', # ¡Nuevo control!
+            'Resolver: [J] (Iterative Deepening A*)',
+            'Resetear: [C] (Volver al estado solución)',
             'Rotaciones: U/Y, D/Z, F/G, B/P, L/I, R/T (Move / Move Prime)',
             f'Último Estado: {last_move_info}',
         ]
@@ -334,11 +350,12 @@ class RubikWindow(pyglet.window.Window):
                 last_move_info = "El cubo ya está resuelto."
             return
         
+        # Ejecuta IDA* y encola la solución para animar igual que A*
         elif symbol == key.J:
- # Ejecuta IDA* y encola la solución para animar igual que A*
             if not rubik.is_solved():
                 self.set_caption("Rubik Solver IA - IDA* BUSCANDO SOLUCIÓN...")
                 solution, expanded_nodes = solve_ida_star(rubik)
+
                 if solution:
                     self.set_caption(
                         f"Rubik Solver IA - IDA* listo: {len(solution)} movimientos | Nodos expandidos: {expanded_nodes}"
@@ -347,9 +364,11 @@ class RubikWindow(pyglet.window.Window):
                     solution_sequence.extend(solution)
                     solution_step = 0
                 else:
-                    self.set_caption("Rubik Solver IA - IDA*: sin solución <= profundidad establecida")
+                    self.set_caption(
+                        f"Rubik Solver IA - IDA*: sin solución <= profundidad establecida | Nodos expandidos {expanded_nodes}"
+                    )
             else:
-                 self.set_caption("Rubik Solver IA - Ya está resuelto")
+                self.set_caption("Rubik Solver IA - Ya está resuelto")
 
         
 
@@ -357,7 +376,7 @@ class RubikWindow(pyglet.window.Window):
 
         
         elif symbol == key.S:
-            self.scramble_cube(num_moves=10) # 10 movimientos para un buen revuelto inicial
+            self.scramble_cube(num_moves = 8) # 8 movimientos para un buen revuelto inicial
             return
 
         elif symbol == key.C: # NUEVO: Tecla 'C' para Resetear
