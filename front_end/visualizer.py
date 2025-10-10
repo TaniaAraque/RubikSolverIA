@@ -352,6 +352,12 @@ class RubikWindow(pyglet.window.Window):
         
         # Ejecuta IDA* y encola la solución para animar igual que A*
         elif symbol == key.J:
+<<<<<<< Updated upstream
+=======
+
+
+        # Ejecuta IDA* y encola la solución para animar igual que A*
+>>>>>>> Stashed changes
             if not rubik.is_solved():
                 self.set_caption("Rubik Solver IA - IDA* BUSCANDO SOLUCIÓN...")
                 solution, expanded_nodes = solve_ida_star(rubik)
@@ -376,7 +382,11 @@ class RubikWindow(pyglet.window.Window):
 
         
         elif symbol == key.S:
+<<<<<<< Updated upstream
             self.scramble_cube(num_moves = 8) # 8 movimientos para un buen revuelto inicial
+=======
+            self.scramble_cube(num_moves=8) # 10 movimientos para un buen revuelto inicial
+>>>>>>> Stashed changes
             return
 
         elif symbol == key.C: # NUEVO: Tecla 'C' para Resetear
