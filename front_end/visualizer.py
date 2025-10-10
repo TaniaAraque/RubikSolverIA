@@ -69,8 +69,6 @@ class RubikWindow(pyglet.window.Window):
         
         solution_sequence = []
         solution_step = 0
-<<<<<<< HEAD
-
 
         scramble_moves = []
         last_move_face = ''
@@ -85,18 +83,11 @@ class RubikWindow(pyglet.window.Window):
             rubik = rubik.apply_move(move) 
             scramble_moves.append(move)
             last_move_face = face
-
-=======
-        
-        scramble_moves = [random.choice(ALL_MOVES) for _ in range(num_moves)]
-        
-        for move in scramble_moves:
-            rubik = rubik.apply_move(move)
             
->>>>>>> a83635ba00bd28500c3e76bc7b12e7bfbcc82035
         scramble_str = " ".join(scramble_moves)
         last_move_info = f"Revuelto: {scramble_str}"
         h_score = heuristic(rubik)
+
         self.set_caption(f"Rubik Solver - Heurística: {h_score}") 
         print(f"Cubo revuelto con: {scramble_str}")
         print(f"Heurística inicial: {h_score}")
@@ -263,7 +254,6 @@ class RubikWindow(pyglet.window.Window):
                               s_sticker, -s_sticker, s + ELEV))
 
         # Back (Z-): Reducimos en Z
-<<<<<<< HEAD
 
         vertices_b = ('v3f', (-s_sticker, s_sticker, -s - ELEV,
 
@@ -273,9 +263,6 @@ class RubikWindow(pyglet.window.Window):
 
                               s_sticker, s_sticker, -s - ELEV))
 
-=======
-        vertices_b = ('v3f', (s_sticker, s_sticker, -s - ELEV, s_sticker, -s_sticker, -s - ELEV, -s_sticker, -s_sticker, -s - ELEV, -s_sticker, s_sticker, -s - ELEV))
->>>>>>> a83635ba00bd28500c3e76bc7b12e7bfbcc82035
         # Up (Y+): Elevamos en Y
 
         vertices_u = ('v3f', (s_sticker, s + ELEV, s_sticker,
@@ -287,7 +274,6 @@ class RubikWindow(pyglet.window.Window):
                               -s_sticker, s + ELEV, s_sticker))
 
         # Down (Y-): Reducimos en Y
-<<<<<<< HEAD
 
         vertices_d = ('v3f', (s_sticker, -s - ELEV, s_sticker,
 
@@ -297,9 +283,6 @@ class RubikWindow(pyglet.window.Window):
 
                               -s_sticker, -s - ELEV, s_sticker))
 
-=======
-        vertices_d = ('v3f', (s_sticker, -s - ELEV, s_sticker, -s_sticker, -s - ELEV, s_sticker, -s_sticker, -s - ELEV, -s_sticker, s_sticker, -s - ELEV, -s_sticker))
->>>>>>> a83635ba00bd28500c3e76bc7b12e7bfbcc82035
         # Left (X-): Reducimos en X
 
         vertices_l = ('v3f', (-s - ELEV, s_sticker, s_sticker,
@@ -311,8 +294,6 @@ class RubikWindow(pyglet.window.Window):
                               -s - ELEV, -s_sticker, s_sticker))
 
         # Right (X+): Elevamos en X
-<<<<<<< HEAD
-
         vertices_r = ('v3f', (s + ELEV, s_sticker, s_sticker,
 
                               s + ELEV, -s_sticker, s_sticker,
@@ -320,9 +301,7 @@ class RubikWindow(pyglet.window.Window):
                               s + ELEV, -s_sticker, -s_sticker,
 
                               s + ELEV, s_sticker, -s_sticker)) 
-=======
-        vertices_r = ('v3f', (s + ELEV, s_sticker, s_sticker, s + ELEV, -s_sticker, s_sticker, s + ELEV, -s_sticker, -s_sticker, s + ELEV, s_sticker, -s_sticker))
->>>>>>> a83635ba00bd28500c3e76bc7b12e7bfbcc82035
+
         
         
         # Colores de las 6 caras
