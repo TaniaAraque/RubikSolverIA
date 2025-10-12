@@ -142,7 +142,7 @@ class RubikWindow(pyglet.window.Window):
         center_offset = 1.5 * CUBE_SIZE + GAP * 3
         glTranslatef(-center_offset, -center_offset, -center_offset) 
 
-
+        glFrontFace(GL_CCW)
         # 2. Dibujar los 27 Cubies (Iteración 3x3x3)
         for x in range(3):
             for y in range(3):
@@ -226,11 +226,11 @@ class RubikWindow(pyglet.window.Window):
             # Front (Z+)
             s, s, s, -s, s, s, -s, -s, s, s, -s, s, 
             # Back (Z-)
-            s, s, -s, s, -s, -s, -s, -s, -s, -s, s, -s, 
+            -s, -s, -s, -s, s, -s, s, s, -s, s, -s, -s, 
             # Up (Y+)
-            s, s, s, s, s, -s, -s, s, -s, -s, s, s,  
+            s, s, -s, -s, s, -s, -s, s, s, s, s, s,  
             # Down (Y-)
-            s, -s, s, -s, -s, s, -s, -s, -s, s, -s, -s, 
+            -s, -s, s, -s, -s, -s, s, -s, -s, s, -s, s, 
             # Left (X-)
             -s, s, s, -s, s, -s, -s, -s, -s, -s, -s, s, 
             # Right (X+)
@@ -245,6 +245,7 @@ class RubikWindow(pyglet.window.Window):
         
         # Front (Z+): Elevamos en Z
 
+        ## (s, s, s), (-s, s, s), (-s, -s, s), (s, -s, s)
         vertices_f = ('v3f', (s_sticker, s_sticker, s + ELEV,
 
                               -s_sticker, s_sticker, s + ELEV,
@@ -254,46 +255,47 @@ class RubikWindow(pyglet.window.Window):
                               s_sticker, -s_sticker, s + ELEV))
 
         # Back (Z-): Reducimos en Z
+        #(-s, -s, -s), (-s, s, -s), (s, s, -s), (s, -s, -s)
+        vertices_b = ('v3f', (-s_sticker, -s_sticker, -s - ELEV,
 
-        vertices_b = ('v3f', (-s_sticker, s_sticker, -s - ELEV,
+                              -s_sticker, s_sticker, -s - ELEV,
 
-                              -s_sticker, -s_sticker, -s - ELEV,
+                              s_sticker, s_sticker, -s - ELEV,
 
-                              s_sticker, -s_sticker, -s - ELEV,
-
-                              s_sticker, s_sticker, -s - ELEV))
+                              s_sticker, -s_sticker, -s - ELEV))
 
         # Up (Y+): Elevamos en Y
-
-        vertices_u = ('v3f', (s_sticker, s + ELEV, s_sticker,
-
-                              s_sticker, s + ELEV, -s_sticker,
+        #(s, s, -s), (-s, s, -s), (-s, s, s), (s, s, s)
+        vertices_u = ('v3f', (s_sticker, s + ELEV, -s_sticker,
 
                               -s_sticker, s + ELEV, -s_sticker,
 
-                              -s_sticker, s + ELEV, s_sticker))
+                              -s_sticker, s + ELEV, s_sticker,
+
+                              s_sticker, s + ELEV, s_sticker))
 
         # Down (Y-): Reducimos en Y
-
-        vertices_d = ('v3f', (s_sticker, -s - ELEV, s_sticker,
-
-                              s_sticker, -s - ELEV, -s_sticker,
+        #(s, -s, s), (s, -s, -s), (-s, -s, -s), (-s, -s, s)
+        vertices_d = ('v3f', (-s_sticker, -s - ELEV, s_sticker,
 
                               -s_sticker, -s - ELEV, -s_sticker,
 
-                              -s_sticker, -s - ELEV, s_sticker))
+                              s_sticker, -s - ELEV, -s_sticker,
+
+                              s_sticker, -s - ELEV, s_sticker))
 
         # Left (X-): Reducimos en X
-
+        #(-s, s, s), (-s, s, -s), (-s, -s, -s), (-s, -s, s)
         vertices_l = ('v3f', (-s - ELEV, s_sticker, s_sticker,
 
                               -s - ELEV, s_sticker, -s_sticker,
 
-                              -s - ELEV, -s_sticker, -s - ELEV,
+                              -s - ELEV, -s_sticker, -s_sticker,
 
                               -s - ELEV, -s_sticker, s_sticker))
 
         # Right (X+): Elevamos en X
+        #(s, s, s), (s, -s, s), (s, -s, -s), (s, s, -s)
         vertices_r = ('v3f', (s + ELEV, s_sticker, s_sticker,
 
                               s + ELEV, -s_sticker, s_sticker,
