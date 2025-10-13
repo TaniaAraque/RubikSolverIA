@@ -3,10 +3,8 @@ from pyglet.gl import *
 from pyglet.window import key
 import random
 
-# Importamos nuestro back-end para el estado del cubo
 from back_end.cube_model import RubikCube, solve_a_star, heuristic, solve_ida_star
 
-# --- Variables Globales (Estética Final) ---
 WINDOW_WIDTH = 960
 WINDOW_HEIGHT = 720
 ROTATION_X = 35
@@ -54,7 +52,6 @@ class RubikWindow(pyglet.window.Window):
         self.rot_y = ROTATION_Y
         self.zoom = ZOOM
         
-        # --- ATRIBUTOS PARA EL REGISTRO DE MÉTRICAS (NUEVO) ---
         self.expanded_nodes = 0
         self.time_spent = 0.0
         self.solver_name = ""
@@ -92,7 +89,7 @@ class RubikWindow(pyglet.window.Window):
         print(f"Cubo revuelto con: {scramble_str}")
         print(f"Heurística inicial: {h_score}")
         
-        # Reiniciar métricas al revuelto (NUEVO)
+        # Reiniciar métricas al revuelto 
         self.expanded_nodes = 0
         self.time_spent = 0.0
         self.solver_name = ""
@@ -112,7 +109,7 @@ class RubikWindow(pyglet.window.Window):
         self.set_caption(f"Rubik Solver - Heurística: {h_score}") 
         print("Cubo reiniciado al estado solucionado.")
         
-        # Reiniciar métricas al reset (NUEVO)
+        # Reiniciar métricas al reset 
         self.expanded_nodes = 0
         self.time_spent = 0.0
         self.solver_name = ""
@@ -178,7 +175,7 @@ class RubikWindow(pyglet.window.Window):
 
                     # Cara Trasera (B): z = 0
                     if z == 0:
-                        index_b = (2 - y) * 3 + (2 - x) 
+                        index_b = (2 - y) * 3 + x 
                         color_b = rubik.get_sticker_color('B', index_b)
 
                     # Cara Derecha (R): x = 2
